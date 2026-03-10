@@ -1,0 +1,20 @@
+[
+  {
+    "file": "src/main.c",
+    "arguments": [
+      "gcc",
+      "-Wall",
+      "-Wextra",
+      "-std=c11",
+      "-g",
+      "-Iinclude",
+      "-I../shared",
+      "-c",
+      "src/main.c",
+      "-o",
+      ".build/src/main.o"
+    ],
+    "directory": "/home/lynx/arduBug/software",
+    "output": ".build/src/main.o"
+  }
+]
