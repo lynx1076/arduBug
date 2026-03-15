@@ -5,13 +5,13 @@
 #include <string.h>
 
 
-static uint8_t ring_buf[SER_RX_BUFF_SIZE];
+static uint8_t ring_buf[SER_RX_BUF_SIZE];
 
 static volatile uint8_t head = 0;
 static volatile uint8_t tail = 0;
 
-void ser_init(uint32_t baudrate) {
-  uint16_t ubrr0_val = (F_CPU / 16 / baudrate) - 1;
+void ser_init() {
+  uint16_t ubrr0_val = (F_CPU / 16 / BAUD_RATE) - 1;
 
   UBRR0H = ubrr0_val >> 8;
   UBRR0L = ubrr0_val & 0xFF;
@@ -23,13 +23,13 @@ void ser_init(uint32_t baudrate) {
 uint8_t ser_available(void) {
   if (head == tail) return 0;
   else if (head > tail) return head - tail;
-  else return SER_RX_BUFF_SIZE - tail + head;
+  else return SER_RX_BUF_SIZE - tail + head;
 }
 
 int16_t ser_readc(void) {
   if (!ser_available()) return -1;
   uint8_t c = ring_buf[tail++];
-  if (tail >= SER_RX_BUFF_SIZE) tail = 0;
+  if (tail >= SER_RX_BUF_SIZE) tail = 0;
   return c;
 }
 
@@ -38,7 +38,7 @@ uint8_t ser_read(uint8_t* buf, uint8_t buf_size) {
 
   while (ser_available() && buf_size--) {
     if (buf != NULL) *buf++ = ring_buf[tail];
-    if (++tail >= SER_RX_BUFF_SIZE) tail = 0;
+    if (++tail >= SER_RX_BUF_SIZE) tail = 0;
     read++;
   }
 
@@ -50,8 +50,8 @@ void ser_write_raw(uint8_t byte) {
   UDR0 = byte;
 }
 
-void ser_write(uint8_t c) {
-  switch (c) {
+void ser_write(uint8_t byte) {
+  switch (byte) {
     case SP_SIG_SYNC:
     case SP_SIG_ESC:
     case SP_SIG_NACK:
@@ -62,7 +62,7 @@ void ser_write(uint8_t c) {
       break;
   }
 
-  ser_write_raw(c);
+  ser_write_raw(byte);
 }
 
 void ser_write_string(const char* str, uint8_t len) {
@@ -74,10 +74,10 @@ void ser_write_string(const char* str, uint8_t len) {
 ISR(USART_RX_vect) {
   ring_buf[head] = UDR0;
 
-  if (++head >= SER_RX_BUFF_SIZE) head = 0;
+  if (++head >= SER_RX_BUF_SIZE) head = 0;
 
   if (head == tail) {
-    if (++tail >= SER_RX_BUFF_SIZE) tail = 0;
+    if (++tail >= SER_RX_BUF_SIZE) tail = 0;
   }
 }
 

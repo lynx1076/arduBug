@@ -19,5 +19,26 @@
     ],
     "directory": "/home/lynx/arduBug/firmware",
     "output": ".build/src/main.o"
+  },
+  {
+    "file": "src/serial.c",
+    "arguments": [
+      "avr-gcc",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      "-std=c11",
+      "-mmcu=atmega328p",
+      "-DF_CPU=16000000UL",
+      "-O3",
+      "-Iinclude",
+      "-I../protocol/",
+      "-c",
+      "src/serial.c",
+      "-o",
+      ".build/src/serial.o"
+    ],
+    "directory": "/home/lynx/arduBug/firmware",
+    "output": ".build/src/serial.o"
   }
 ]

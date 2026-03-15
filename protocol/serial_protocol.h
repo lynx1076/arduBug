@@ -1,12 +1,14 @@
 #ifndef SERIAL_PROTOCOL_H
 #define SERIAL_PROTOCOL_H
 
+#define SP_BAUD_RATE            9600
+
 #define SP_CMD_WRITE            0xC0
 #define SP_CMD_READ             0xC1
 #define SP_CMD_WRITE_MODE       0xC2
 
 #define SP_CMD_PING             0xCA
-#define SP_CMD_TEXT             0xCB // Reserved for later use
+#define SP_CMD_TEXT             0xCB
 
 #define SP_SIG_SYNC             0xA0
 #define SP_SIG_ESC              0xA1

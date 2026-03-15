@@ -11,11 +11,9 @@
 #define LED_PIN           PB5
 #define SET_LED(STATE)    PORTB = (PORTB & ~_BV(PB5)) | ((STATE) << PB5)
 
-#define BAUD_RATE         57600
-
 int main(void) {
   twi_init();
-  ser_init(BAUD_RATE);
+  ser_init();
   sei();
 
   DDRB |= _BV(LED_PIN);

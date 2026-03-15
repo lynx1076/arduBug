@@ -1,6 +1,6 @@
 [
   {
-    "file": "src/main.c",
+    "file": "src/serial.c",
     "arguments": [
       "gcc",
       "-Wall",
@@ -8,13 +8,13 @@
       "-std=c11",
       "-g",
       "-Iinclude",
-      "-I../shared",
+      "-I../protocol",
       "-c",
-      "src/main.c",
+      "src/serial.c",
       "-o",
-      ".build/src/main.o"
+      ".build/linux/src/serial.o"
     ],
-    "directory": "/home/lynx/arduBug/software",
-    "output": ".build/src/main.o"
+    "directory": "/home/lynx/arduBug/host",
+    "output": ".build/linux/src/serial.o"
   }
 ]
