@@ -2,7 +2,7 @@
   {
     "file": "src/main.c",
     "arguments": [
-      "avr-gcc",
+      "/usr/bin/avr-gcc",
       "-Wall",
       "-Wextra",
       "-Werror",
@@ -11,7 +11,7 @@
       "-DF_CPU=16000000UL",
       "-O3",
       "-Iinclude",
-      "-I../protocol/",
+      "-I../protocol",
       "-c",
       "src/main.c",
       "-o",
@@ -21,9 +21,9 @@
     "output": ".build/src/main.o"
   },
   {
-    "file": "src/serial.c",
+    "file": "src/twi.c",
     "arguments": [
-      "avr-gcc",
+      "/usr/bin/avr-gcc",
       "-Wall",
       "-Wextra",
       "-Werror",
@@ -32,7 +32,49 @@
       "-DF_CPU=16000000UL",
       "-O3",
       "-Iinclude",
-      "-I../protocol/",
+      "-I../protocol",
+      "-c",
+      "src/twi.c",
+      "-o",
+      ".build/src/twi.o"
+    ],
+    "directory": "/home/lynx/arduBug/firmware",
+    "output": ".build/src/twi.o"
+  },
+  {
+    "file": "src/mcp23017.c",
+    "arguments": [
+      "/usr/bin/avr-gcc",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      "-std=c11",
+      "-mmcu=atmega328p",
+      "-DF_CPU=16000000UL",
+      "-O3",
+      "-Iinclude",
+      "-I../protocol",
+      "-c",
+      "src/mcp23017.c",
+      "-o",
+      ".build/src/mcp23017.o"
+    ],
+    "directory": "/home/lynx/arduBug/firmware",
+    "output": ".build/src/mcp23017.o"
+  },
+  {
+    "file": "src/serial.c",
+    "arguments": [
+      "/usr/bin/avr-gcc",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      "-std=c11",
+      "-mmcu=atmega328p",
+      "-DF_CPU=16000000UL",
+      "-O3",
+      "-Iinclude",
+      "-I../protocol",
       "-c",
       "src/serial.c",
       "-o",
@@ -40,5 +82,68 @@
     ],
     "directory": "/home/lynx/arduBug/firmware",
     "output": ".build/src/serial.o"
+  },
+  {
+    "file": "src/serial_handler.c",
+    "arguments": [
+      "/usr/bin/avr-gcc",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      "-std=c11",
+      "-mmcu=atmega328p",
+      "-DF_CPU=16000000UL",
+      "-O3",
+      "-Iinclude",
+      "-I../protocol",
+      "-c",
+      "src/serial_handler.c",
+      "-o",
+      ".build/src/serial_handler.o"
+    ],
+    "directory": "/home/lynx/arduBug/firmware",
+    "output": ".build/src/serial_handler.o"
+  },
+  {
+    "file": "src/cmd_handler.c",
+    "arguments": [
+      "/usr/bin/avr-gcc",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      "-std=c11",
+      "-mmcu=atmega328p",
+      "-DF_CPU=16000000UL",
+      "-O3",
+      "-Iinclude",
+      "-I../protocol",
+      "-c",
+      "src/cmd_handler.c",
+      "-o",
+      ".build/src/cmd_handler.o"
+    ],
+    "directory": "/home/lynx/arduBug/firmware",
+    "output": ".build/src/cmd_handler.o"
+  },
+  {
+    "file": "src/utils.c",
+    "arguments": [
+      "/usr/bin/avr-gcc",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      "-std=c11",
+      "-mmcu=atmega328p",
+      "-DF_CPU=16000000UL",
+      "-O3",
+      "-Iinclude",
+      "-I../protocol",
+      "-c",
+      "src/utils.c",
+      "-o",
+      ".build/src/utils.o"
+    ],
+    "directory": "/home/lynx/arduBug/firmware",
+    "output": ".build/src/utils.o"
   }
 ]

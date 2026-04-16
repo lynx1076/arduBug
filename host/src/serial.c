@@ -1,133 +1,211 @@
 #include "serial.h"
-#include "serial_protocol.h"
+#include "result.h"
+#include "serial_handler.h"
+#include "utils.h"
 #include "vector.h"
-#include <fcntl.h>
-#include <poll.h>
-#include <sys/ioctl.h>
-#include <termios.h>
+#include <stdint.h>
 #include <unistd.h>
+#include <fcntl.h>
+#include <termios.h>
 #include <dirent.h>
+#include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdlib.h>
+#include <errno.h>
 
-static int serial_handle = -1;
-Vec ports;
+static Vec open_ports;
 
-int ser_init(void) {
-  if (vec_init(&ports, SER_MAX_PORT_PATH_LENGTH * sizeof(char))) {
-    return -1;
-  }
-  return 0;
+static int current_port_fd = -1;
+static char current_port_name[SERIAL_PORT_PATH_MAX] = {0};
+static char current_port_path[SERIAL_PORT_PATH_MAX] = {0};
+
+static bool is_open = false;
+static bool was_open = false;
+
+#define CONFIG_DELAY_MS         3000
+
+result ser_init(void) {
+  return vec_init(&open_ports, sizeof(ser_SerialPort));
 }
 
 void ser_free(void) {
-  vec_free(&ports);
+  ser_close();
+  vec_free(&open_ports);
 }
 
-int ser_open(const char* port) {
-  if (serial_handle >= 0) {
+void ser_update(void) {
+  was_open = is_open;
+  is_open = current_port_fd >= 0;
+
+  if (ser_is_open() && access(current_port_path, F_OK) != 0) {
     ser_close();
   }
-
-  serial_handle = open(port, O_RDWR | O_NOCTTY | O_NONBLOCK);
-  if (serial_handle < 0) {
-    return -1;
-  }
-
-  struct termios tty = {0};
-  if (tcgetattr(serial_handle, &tty) != 0) {
-    ser_close();
-    return -1;
-  }
-
-  if (cfsetispeed(&tty, SER_BAUD_RATE) != 0 || cfsetospeed(&tty, SP_BAUD_RATE) != 0) {
-    ser_close();
-    return -1;
-  }
-
-  tty.c_cflag = CS8 | CREAD | CLOCAL;
-  tty.c_iflag = 0;
-  tty.c_oflag = 0;
-  tty.c_lflag = 0;
-  tty.c_cc[VMIN] = 0;
-  tty.c_cc[VTIME] = 0;
-
-  if (tcsetattr(serial_handle, TCSANOW, &tty) != 0) {
-    ser_close();
-    return -1;
-  }
-
-  return 0;
 }
 
-void ser_close(void) {
-  if (serial_handle < 0) {
-    return;
+result ser_scan_ports(int* count) {
+  result res;
+  DIR* dev_dir = opendir("/dev");
+  if (!dev_dir) {
+    return r_ESYS;
   }
 
-  close(serial_handle);
-  serial_handle = -1;
-}
-
-int ser_available(void) {
-  if (serial_handle < 0) {
-    return -1;
+  res = vec_clear(&open_ports);
+  if (res != r_ENONE) {
+    closedir(dev_dir);
+    return res;
   }
 
-  int bytes = 0;
-  if (ioctl(serial_handle, FIONREAD, &bytes) != 0) {
-    return -1;
-  }
+  struct dirent* entry;
+  int count_ = 0;
 
-  return bytes;
-}
+  while ((entry = readdir(dev_dir)) != NULL) {
+    if (strncmp(entry->d_name, "ttyUSB", 6) == 0) {
+      ser_SerialPort port;
+      snprintf(port.port_name, SERIAL_PORT_PATH_MAX, "%s", entry->d_name);
+      snprintf(port.full_path, SERIAL_PORT_PATH_MAX, "/dev/%s", entry->d_name);
 
-int ser_read(uint8_t *buf, size_t len) {
-  if (serial_handle < 0 || buf == NULL || len == 0) {
-    return -1;
-  }
-
-  ssize_t r = read(serial_handle, buf, len);
-
-  return r;
-}
-
-int ser_write(const uint8_t *buf, size_t len) {
-  if (serial_handle < 0 || buf == NULL || len == 0) {
-    return -1;
-  }
-
-  return write(serial_handle, buf, len) == (ssize_t)len ? 0 : -1;
-}
-
-int ser_scan_ports(void) {
-  const char *tty_dir = "/sys/class/tty";
-  DIR *d = opendir(tty_dir);
-  if (d == NULL) {
-    return -1;
-  }
-
-  if (vec_clear(&ports)) {
-    return -1;
-  }
-
-  struct dirent *dir;
-  while ((dir = readdir(d)) != NULL) {
-    if (strncmp(dir->d_name, "ttyACM", 6) == 0 ||
-        strncmp(dir->d_name, "ttyUSB", 6) == 0) {
-      char buf[SER_MAX_PORT_PATH_LENGTH];
-      sprintf(buf, "/dev/%s", dir->d_name);
-      vec_push(&ports, buf);
+      if (vec_push(&open_ports, &port) == 0) {
+        count_++;
+      }
     }
   }
-  closedir(d);
 
-  return ports.count;
+  if (count) *count = count_;
+  closedir(dev_dir);
+  return r_ENONE;
 }
 
 char* ser_get_port_name(int index) {
-  return vec_get(&ports, index);
+  return vec_get(&open_ports, index);
+}
+
+result ser_open_by_id(int id) {
+  result res;
+
+  ser_SerialPort* port = (ser_SerialPort*)vec_get(&open_ports, id);
+  if (port == NULL) {
+    return r_EBOUNDS;
+  }
+
+  int fd = open(port->full_path, O_RDWR | O_NOCTTY | O_SYNC | O_NONBLOCK);
+  if (fd < 0) {
+    return r_ESYS;
+  }
+
+  struct termios tty;
+  if (tcgetattr(fd, &tty) != 0) {
+    return r_ESYS;
+  }
+
+  cfsetospeed(&tty, B115200);
+  cfsetispeed(&tty, B115200);
+
+  tty.c_cflag = (tty.c_cflag & ~CSIZE) | CS8;
+  tty.c_iflag &= ~(IGNBRK | BRKINT | PARMRK | ISTRIP | INLCR | IGNCR | ICRNL | IXON | IXOFF | IXANY);
+  tty.c_lflag &= ~(ECHO | ECHONL | ICANON | ISIG | IEXTEN);
+  tty.c_oflag &= ~OPOST;
+  tty.c_cc[VMIN]  = 0;
+  tty.c_cc[VTIME] = 0;
+
+  tty.c_cflag |= (CLOCAL | CREAD);
+  tty.c_cflag &= ~(PARENB | PARODD);
+  tty.c_cflag &= ~CSTOPB;
+  tty.c_cflag &= ~CRTSCTS;
+
+  if (tcsetattr(fd, TCSANOW, &tty) != 0) {
+    return r_ESYS;
+  }
+
+  current_port_fd = fd;
+  snprintf(current_port_name, SERIAL_PORT_PATH_MAX, "%s", port->port_name);
+  snprintf(current_port_path, SERIAL_PORT_PATH_MAX, "%s", port->full_path);
+
+  sleep_ms(CONFIG_DELAY_MS);
+
+  res = ser_flush();
+  if (res != r_ENONE) goto EXIT_ERR;
+
+  res = seh_config();
+  if (res != r_ENONE) goto EXIT_ERR;
+
+  return r_ENONE;
+
+EXIT_ERR:
+  ser_close();
+  return res;
+}
+
+void ser_close(void) {
+  if (ser_is_open()) {
+    close(current_port_fd);
+    is_open = false;
+    current_port_fd = -1;
+    current_port_name[0] = '\0';
+    current_port_path[0] = '\0';
+  }
+}
+
+bool ser_is_open(void) {
+  return current_port_fd >= 0;
+}
+
+char* ser_get_open(void) {
+  return current_port_name;
+}
+
+bool ser_just_closed(void) {
+  return was_open && !is_open;
+}
+
+bool ser_just_opened(void) {
+  return !was_open && is_open;
+}
+
+result ser_write(uint8_t data) {
+  if (current_port_fd < 0) {
+    return r_ESYS;
+  }
+
+  ssize_t result = write(current_port_fd, &data, 1);
+
+  if (result != 1) {
+    ser_close();
+    return r_ESYS;
+  }
+
+  return r_ENONE;
+}
+
+result ser_read(uint8_t* data) {
+  if (current_port_fd < 0) {
+    return r_ESYS;
+  }
+
+  if (data == NULL) {
+    return r_EARGS;
+  }
+
+  ssize_t read_res = read(current_port_fd, data, 1);
+
+  if (read_res < 0) {
+    if (errno == EAGAIN || errno == EWOULDBLOCK) {
+      return r_ENONE;
+    }
+    ser_close();
+    return r_ESYS;
+  } else if (read_res == 1) {
+    return r_DATA_READY;
+  }
+  
+  return r_ENONE;
+}
+
+result ser_flush() {
+  if (current_port_fd < 0) return r_ESYS;
+  
+  if (tcflush(current_port_fd, TCIOFLUSH)) return r_ESYS;
+
+  return r_ENONE;
 }
 

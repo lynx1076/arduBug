@@ -1,8 +1,9 @@
 #ifndef SERIAL_HANDLER_H
 #define SERIAL_HANDLER_H
 
-#define SEH_MAX_ARG_CNT     8
+#include <stdint.h>
 
-void seh_handle_command(void);
+void seh_receive(void (*onRead)(uint8_t, uint8_t*));
+void seh_transmit_buf(uint8_t len, const uint8_t* data);
 
 #endif

@@ -36,7 +36,6 @@ void twi_init(void) {
   TWBR = 72;
   TWSR = 0x00;
   TWCR = _BV(TWEN);
-  PORTC = _BV(TWI_PIN_SDA) | _BV(TWI_PIN_SCL);
 }
 
 uint8_t twi_start(void) {
@@ -48,6 +47,8 @@ uint8_t twi_start(void) {
 
 void twi_stop(void) {
   TWCR = _BV(TWINT) | _BV(TWEN) | _BV(TWSTO);
+  // Wait for STOP condition to complete
+  while (TWCR & _BV(TWSTO));
 }
 
 uint8_t twi_write(uint8_t data) {
