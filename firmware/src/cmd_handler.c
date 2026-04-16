@@ -12,6 +12,7 @@ void cmd_exec(uint8_t len, uint8_t* cmd) {
 
   switch (*cmd) {
     case SP_CMD_RESET: {
+      seh_transmit_buf(1, (uint8_t[]){0x00});
       reset();
     } break;
     case SP_CMD_PING: // Fall-through

@@ -34,14 +34,15 @@ int main(void) {
 
   while (true) {
     seh_receive(&cmd_exec);
-    if (ms_counter >= led_timer) {
-      led_timer = ms_counter + LED_PERIOD / 2;
-      TOGGLE_LED();
-    }
   }
 }
 
 ISR(TIMER0_COMPA_vect) {
   ms_counter++;
+
+  if (ms_counter >= led_timer) {
+    led_timer = ms_counter + LED_PERIOD / 2;
+    TOGGLE_LED();
+  }
 }
 
