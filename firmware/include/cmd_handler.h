@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 
-void cmd_exec(uint8_t len, uint8_t* cmd);
+extern uint8_t cmd_response_buf[254];
+
+uint8_t cmd_exec(uint8_t len, const uint8_t* cmd);
 
 #endif

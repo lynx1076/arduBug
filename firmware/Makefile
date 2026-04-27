@@ -9,15 +9,15 @@ SRCS = \
 	src/twi.c \
 	src/mcp23017.c \
 	src/serial.c \
-	src/serial_handler.c \
 	src/cmd_handler.c \
 	src/utils.c \
+	../common/ucobs.c
 
 BUILD_DIR = .build
 
 INCLUDES = \
 	include \
-	../protocol
+	../common \
 
 CFLAGS = \
 	-Wall \

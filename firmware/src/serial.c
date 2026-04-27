@@ -1,7 +1,9 @@
 #include "serial.h"
 #include <avr/interrupt.h>
 #include <stdbool.h>
+#include <stdarg.h>
 #include <stdint.h>
+#include <stdio.h>
 
 
 static uint8_t ring_buf[SER_RX_BUF_SIZE];
@@ -26,7 +28,7 @@ uint8_t ser_available(void) {
   else return SER_RX_BUF_SIZE - tail + head;
 }
 
-uint8_t ser_read(uint8_t* byte) {
+int ser_read(uint8_t* byte) {
   if (!ser_available()) return -1;
   if (byte) *byte = ring_buf[tail];
   if (++tail >= SER_RX_BUF_SIZE) tail = 0;
@@ -35,7 +37,27 @@ uint8_t ser_read(uint8_t* byte) {
 
 void ser_write(uint8_t byte) {
   while (!(UCSR0A & _BV(UDRE0)));
+
   UDR0 = byte;
+}
+
+void ser_write_buf(uint8_t len, const uint8_t* buf) {
+  for (uint8_t i = 0; i < len; i++) {
+    ser_write(buf[i]);
+  }
+}
+
+void ser_write_str(const char* format, ...) {
+  char buffer[64];
+  va_list args;
+
+  va_start(args, format);
+  vsnprintf(buffer, sizeof(buffer), format, args);
+  va_end(args);
+
+  for (uint8_t i = 0; buffer[i] != '\0'; i++) {
+    ser_write(buffer[i]);
+  }
 }
 
 ISR(USART_RX_vect) {
