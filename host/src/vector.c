@@ -1,13 +1,16 @@
 #include "vector.h"
 #include "result.h"
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
 #include <stdio.h>
+#include <time.h>
 
 
 result vec_init(Vec* vec, unsigned int elSize) {
+  if (vec_is_init(vec)) return r_EDOUBLE_INIT;
   void* memory = malloc(elSize * VEC_INITIAL_CAP);
   if (memory == NULL) return r_EMEM;
 
@@ -19,12 +22,19 @@ result vec_init(Vec* vec, unsigned int elSize) {
   return r_ENONE;
 }
 
-void vec_free(Vec* vec) {
-  free(vec->memory);
-  *vec = (Vec){0};
+bool vec_is_init(Vec* vec) {
+  if (vec == NULL) return false;
+  return vec->memory != NULL;
 }
 
-result vec_updatr_capacity(Vec* vec) {
+void vec_free(Vec* vec) {
+  if (!vec_is_init(vec)) return;
+  free(vec->memory);
+  *vec = VEC_ZERO;
+}
+
+result vec_update_capacity(Vec* vec) {
+  if (!vec_is_init(vec)) return r_ENOT_INIT;
   size_t new_cap;
 
   if (vec->count < vec->capacity) {
@@ -49,9 +59,10 @@ result vec_updatr_capacity(Vec* vec) {
 }
 
 result vec_push(Vec* vec, void* el) {
+  if (!vec_is_init(vec)) return r_ENOT_INIT;
   result res;
 
-  res = vec_updatr_capacity(vec);
+  res = vec_update_capacity(vec);
   if (res != r_ENONE) return res;
 
   memcpy((char*)vec->memory + vec->count * vec->elSize, el, vec->elSize);
@@ -61,24 +72,27 @@ result vec_push(Vec* vec, void* el) {
 }
 
 result vec_pop(Vec* vec, void* el) {
+  if (!vec_is_init(vec)) return r_ENOT_INIT;
   result res;
 
   memcpy(el, (char*)vec->memory + (vec->count - 1) * vec->elSize, vec->elSize);
   vec->count--;
   
-  res = vec_updatr_capacity(vec);
+  res = vec_update_capacity(vec);
   if (res != r_ENONE) return res;
 
   return r_ENONE;
 }
 
 void* vec_get(Vec* vec, size_t index) {
+  if (!vec_is_init(vec)) return NULL;
   if (index >= vec->count) return NULL;
   return (char*)vec->memory + index * vec->elSize;
 }
 
 result vec_clear(Vec* vec) {
+  if (!vec_is_init(vec)) return r_ENOT_INIT;
   vec->count = 0;
-  return vec_updatr_capacity(vec);
+  return vec_update_capacity(vec);
 }
 

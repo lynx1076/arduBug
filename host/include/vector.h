@@ -2,6 +2,7 @@
 #define VECTOR_H
 
 #include "result.h"
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -15,12 +16,18 @@ typedef struct {
   unsigned int elSize;
 } Vec;
 
+#define VEC_ZERO      (Vec){NULL, 0, 0, 0}
 
 /**
  * Initalize a vector object
  * Returns 0 on success, -1 on failure
  */
 result vec_init(Vec* vec, unsigned int elSize);
+
+/**
+ * Return true if vector memory is not null
+ */
+bool vec_is_init(Vec* vec);
 
 /**
  * Free the vector object

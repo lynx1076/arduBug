@@ -1,6 +1,8 @@
 #include "utils.h"
-#include "ui.h"
+#include "result.h"
+#include <errno.h>
 #include <stdarg.h>
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -8,8 +10,9 @@
 #include <string.h>
 #include <time.h>
 
+bool dbg_log_to_printf = false;
+
 void (*LOG_FUNCS[])(const char*) = {
-  ui_log,
   NULL
 };
 
@@ -43,7 +46,7 @@ void debug_log(log_level ll, char* format, ...) {
   char* full_str;
   asprintf(&full_str, "[%s] %s", prefix, msg);
 
-  printf("%s\n", full_str);
+  if (dbg_log_to_printf) printf("%s\n", full_str);
   for (int i = 0; LOG_FUNCS[i] != 0; i++) {
     LOG_FUNCS[i](full_str);
   }
@@ -86,5 +89,15 @@ uint64_t millis(void) {
   clock_gettime(CLOCK_MONOTONIC, &ts);
 
   return (uint64_t)ts.tv_sec * 1000ULL + ts.tv_nsec / 1000000ULL;
+}
+
+result parse_int(const char* str, long* val) {
+  errno = 0;
+  char* endptr;
+  *val = strtol(str, &endptr, 10);
+
+  if (errno != 0) return r_EUSER_PARSE;
+
+  return r_ENONE;
 }
 
