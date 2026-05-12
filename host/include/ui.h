@@ -15,15 +15,7 @@
 
 #define COLOR_BG          (mu_Color){0x20, 0x20, 0x60, 0xFF}
 
-typedef enum {
-  ull_INFO,
-  ull_OK,
-  ull_ERR,
-  ull_CRIT,
-  ull_WARN,
-} ui_log_level;
-
 result ui_process_and_draw(mu_Context *ctx);
-void ui_log(const char* msg, ui_log_level ull);
+void ui_log(const char* msg);
 
 #endif

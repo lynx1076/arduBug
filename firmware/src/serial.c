@@ -20,6 +20,10 @@ void ser_init() {
   UCSR0A |= _BV(U2X0);
   UCSR0C = _BV(UCSZ01) | _BV(UCSZ00);
   UCSR0B = _BV(RXEN0) | _BV(TXEN0) | _BV(RXCIE0);
+
+  while (UCSR0A & _BV(RXC0)) {
+    (void)UDR0;
+  }
 }
 
 uint8_t ser_available(void) {

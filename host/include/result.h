@@ -3,6 +3,7 @@
 
 typedef enum {
   r_ENONE = 0,
+  r_EENCODING,
   r_DATA_READY,
   r_EMEM,
   r_ESYS,
@@ -11,5 +12,7 @@ typedef enum {
   r_EARGS,
   r_EDEVICE
 } result;
+
+char* res_get_string(result res);
 
 #endif

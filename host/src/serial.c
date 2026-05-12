@@ -1,175 +1,192 @@
 #include "serial.h"
+#include "serial_protocol.h"
+#include "ucobs.h"
 #include "result.h"
-#include "serial_handler.h"
 #include "utils.h"
 #include "vector.h"
-#include <stdint.h>
+#include <stdarg.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <termios.h>
 #include <dirent.h>
 #include <string.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <errno.h>
 
-static Vec open_ports;
+#define READY_TIMEOUT_MS         3000
 
 static int current_port_fd = -1;
-static char current_port_name[SERIAL_PORT_PATH_MAX] = {0};
-static char current_port_path[SERIAL_PORT_PATH_MAX] = {0};
+static char current_port[SERIAL_PORT_PATH_MAX] = {0};
 
 static bool is_open = false;
 static bool was_open = false;
+static bool recv_sync = false;
 
-#define CONFIG_DELAY_MS         3000
+static uint32_t port_open_timeout_ms = 0;
 
-result ser_init(void) {
-  return vec_init(&open_ports, sizeof(ser_SerialPort));
-}
+static e_PortState portState = portState_disconnected;
 
-void ser_free(void) {
-  ser_close();
-  vec_free(&open_ports);
-}
+static uint8_t recv_buf[UCOBS_MAX_PACKET_LEN];
+static size_t recv_len = 0;
 
-void ser_update(void) {
+result ser_update(void) {
+  result res;
+
   was_open = is_open;
-  is_open = current_port_fd >= 0;
+  is_open = portState == portState_connected;
 
-  if (ser_is_open() && access(current_port_path, F_OK) != 0) {
+  if (portState != portState_disconnected && access(current_port, F_OK) != 0) {
     ser_close();
   }
+
+  if (portState == portState_connecting) {
+    if (port_open_timeout_ms < millis()) {
+      ser_close();
+    } else {
+      debug_log(log_INFO, "Attempting ping");
+      res = ser_enc_write_va(1, SP_CMD_PING);
+      debug_log(log_INFO, "Completed ping");
+      if (res != r_ENONE) return res;
+
+      portState = portState_connected;
+    }
+  }
+
+  return r_ENONE;
 }
 
-result ser_scan_ports(int* count) {
+result ser_scan_ports(Vec* return_vec) {
   result res;
+
+  res = vec_init(return_vec, SERIAL_PORT_PATH_MAX);
+  if (res != r_ENONE) {
+    return res;
+  }
+
   DIR* dev_dir = opendir("/dev");
   if (!dev_dir) {
     return r_ESYS;
   }
 
-  res = vec_clear(&open_ports);
   if (res != r_ENONE) {
     closedir(dev_dir);
     return res;
   }
 
   struct dirent* entry;
-  int count_ = 0;
 
   while ((entry = readdir(dev_dir)) != NULL) {
     if (strncmp(entry->d_name, "ttyUSB", 6) == 0) {
-      ser_SerialPort port;
-      snprintf(port.port_name, SERIAL_PORT_PATH_MAX, "%s", entry->d_name);
-      snprintf(port.full_path, SERIAL_PORT_PATH_MAX, "/dev/%s", entry->d_name);
-
-      if (vec_push(&open_ports, &port) == 0) {
-        count_++;
+      char full_path[PATH_MAX];
+      snprintf(full_path, sizeof(full_path), "/dev/%s", entry->d_name);
+      res = vec_push(return_vec, full_path);
+      if (res != r_ENONE) {
+        vec_clear(return_vec);
+        return res;
       }
     }
   }
 
-  if (count) *count = count_;
   closedir(dev_dir);
   return r_ENONE;
 }
 
-char* ser_get_port_name(int index) {
-  return vec_get(&open_ports, index);
-}
+result ser_open(char* path) {
+  ser_close();
 
-result ser_open_by_id(int id) {
-  result res;
-
-  ser_SerialPort* port = (ser_SerialPort*)vec_get(&open_ports, id);
-  if (port == NULL) {
-    return r_EBOUNDS;
+  if (path == NULL) {
+    return r_EARGS;
   }
 
-  int fd = open(port->full_path, O_RDWR | O_NOCTTY | O_SYNC | O_NONBLOCK);
+  int fd = open(path, O_RDWR | O_NOCTTY);
   if (fd < 0) {
+    debug_log(log_ERR, "FAILED: %i", __LINE__);
     return r_ESYS;
   }
 
   struct termios tty;
   if (tcgetattr(fd, &tty) != 0) {
+    debug_log(log_ERR, "FAILED: %i", __LINE__);
+    close(fd);
     return r_ESYS;
   }
 
-  cfsetospeed(&tty, B115200);
-  cfsetispeed(&tty, B115200);
+  memset(&tty, 0, sizeof tty);
 
-  tty.c_cflag = (tty.c_cflag & ~CSIZE) | CS8;
-  tty.c_iflag &= ~(IGNBRK | BRKINT | PARMRK | ISTRIP | INLCR | IGNCR | ICRNL | IXON | IXOFF | IXANY);
-  tty.c_lflag &= ~(ECHO | ECHONL | ICANON | ISIG | IEXTEN);
-  tty.c_oflag &= ~OPOST;
-  tty.c_cc[VMIN]  = 0;
-  tty.c_cc[VTIME] = 0;
+  tty.c_cflag = CLOCAL | CREAD;   // ignore modem ctrl lines, enable read
+  tty.c_cflag |= CS8;             // 8 data bits
+  tty.c_cflag &= ~PARENB;         // no parity
+  tty.c_cflag &= ~CSTOPB;         // 1 stop bit
+  tty.c_cflag &= ~CRTSCTS;        // no hardware flow control
 
-  tty.c_cflag |= (CLOCAL | CREAD);
-  tty.c_cflag &= ~(PARENB | PARODD);
-  tty.c_cflag &= ~CSTOPB;
-  tty.c_cflag &= ~CRTSCTS;
+  tty.c_iflag = 0;
+  tty.c_iflag &= ~(IXON | IXOFF | IXANY); // no software flow control
+
+  tty.c_oflag = 0;
+
+  tty.c_lflag = 0; // raw input (no echo, no canonical mode)
+
+  tty.c_cc[VMIN]  = 0; // non-blocking read
+  tty.c_cc[VTIME] = 1; // 100 ms timeout
+
+  if (cfsetispeed(&tty, SER_BAUDRATE) != 0 ||
+      cfsetospeed(&tty, SER_BAUDRATE) != 0) {
+    close(fd);
+    debug_log(log_ERR, "FAILED: %i", __LINE__);
+    return r_ESYS;
+  }
 
   if (tcsetattr(fd, TCSANOW, &tty) != 0) {
+    close(fd);
+    debug_log(log_ERR, "FAILED: %i", __LINE__);
+    return r_ESYS;
+  }
+
+  if (tcflush(fd, TCIOFLUSH)) {
+    debug_log(log_ERR, "FAILED: %i", __LINE__);
     return r_ESYS;
   }
 
   current_port_fd = fd;
-  snprintf(current_port_name, SERIAL_PORT_PATH_MAX, "%s", port->port_name);
-  snprintf(current_port_path, SERIAL_PORT_PATH_MAX, "%s", port->full_path);
+  snprintf(current_port, SERIAL_PORT_PATH_MAX, "%s", path);
 
-  sleep_ms(CONFIG_DELAY_MS);
-
-  res = ser_flush();
-  if (res != r_ENONE) goto EXIT_ERR;
-
-  res = seh_config();
-  if (res != r_ENONE) goto EXIT_ERR;
+  portState = portState_connecting;
+  port_open_timeout_ms = millis() + READY_TIMEOUT_MS;
 
   return r_ENONE;
-
-EXIT_ERR:
-  ser_close();
-  return res;
 }
 
 void ser_close(void) {
-  if (ser_is_open()) {
-    close(current_port_fd);
-    is_open = false;
-    current_port_fd = -1;
-    current_port_name[0] = '\0';
-    current_port_path[0] = '\0';
-  }
+  close(current_port_fd);
+  is_open = false;
+  current_port_fd = -1;
+  *current_port = '\0';
+  recv_sync = false;
+  portState = portState_disconnected;
+}
+
+char* ser_get_current_port(void) {
+  return current_port;
 }
 
 bool ser_is_open(void) {
-  return current_port_fd >= 0;
-}
-
-char* ser_get_open(void) {
-  return current_port_name;
-}
-
-bool ser_just_closed(void) {
-  return was_open && !is_open;
+  return is_open;
 }
 
 bool ser_just_opened(void) {
-  return !was_open && is_open;
+  return is_open && !was_open;
 }
 
-result ser_write(uint8_t data) {
-  if (current_port_fd < 0) {
-    return r_ESYS;
+bool ser_just_closed(void) {
+  return !is_open && was_open;
+}
+
+result ser_write(size_t length, const uint8_t* data) {
+  if (portState != portState_connected) {
+    return r_EDEVICE;
   }
 
-  ssize_t result = write(current_port_fd, &data, 1);
+  ssize_t result = write(current_port_fd, data, length);
 
-  if (result != 1) {
+  if (result <= 0 || (size_t)result != length) {
     ser_close();
     return r_ESYS;
   }
@@ -177,7 +194,32 @@ result ser_write(uint8_t data) {
   return r_ENONE;
 }
 
-result ser_read(uint8_t* data) {
+result ser_enc_write_va(size_t length, ...) {
+  va_list va_args;
+  uint8_t buf[UCOBS_MAX_PACKET_LEN];
+  result res;
+
+  va_start(va_args, length);
+
+  for (size_t i = 1; i <= length; i++) {
+    buf[i] = va_arg(va_args, int);
+  }
+
+  va_end(va_args);
+
+  int encoded_len = ucobs_encode(length, buf + 1, buf + 1);
+  if (encoded_len == -1) return r_EENCODING;
+
+  buf[0] = 0x00;
+  buf[encoded_len + 1] = 0x00;
+
+  res = ser_write(encoded_len + UCOBS_LEN_FRAME, buf);
+  if (res != r_ENONE) return res;
+
+  return r_ENONE;
+}
+
+result ser_read(size_t* length, uint8_t* data) {
   if (current_port_fd < 0) {
     return r_ESYS;
   }
@@ -186,26 +228,67 @@ result ser_read(uint8_t* data) {
     return r_EARGS;
   }
 
-  ssize_t read_res = read(current_port_fd, data, 1);
+  if (length == NULL) {
+    return r_EARGS;
+  }
+
+  ssize_t read_res = read(current_port_fd, data, *length);
 
   if (read_res < 0) {
-    if (errno == EAGAIN || errno == EWOULDBLOCK) {
-      return r_ENONE;
-    }
     ser_close();
     return r_ESYS;
-  } else if (read_res == 1) {
+  } else if (read_res >= 1) {
+    *length = read_res;
     return r_DATA_READY;
   }
-  
-  return r_ENONE;
-}
-
-result ser_flush() {
-  if (current_port_fd < 0) return r_ESYS;
-  
-  if (tcflush(current_port_fd, TCIOFLUSH)) return r_ESYS;
 
   return r_ENONE;
 }
 
+result ser_enc_read(size_t* length, uint8_t* data) {
+	size_t free_space = UCOBS_MAX_PACKET_LEN - recv_len;
+
+	if (free_space == 0)
+		return r_EENCODING;
+
+	size_t bytes_read = free_space;
+	result res = ser_read(&bytes_read, recv_buf + recv_len);
+
+	if (res != r_ENONE && res != r_DATA_READY)
+		return res;
+
+	recv_len += bytes_read;
+
+	size_t i = 0;
+	while (i < recv_len) {
+		if (recv_buf[i] != 0x00) {
+			i++;
+			continue;
+		}
+
+		if (!recv_sync) {
+			recv_sync = true;
+			size_t remaining = recv_len - i - 1;
+			memmove(recv_buf,	recv_buf + i + 1, remaining);
+			recv_len = remaining;
+			i = 0;
+
+			continue;
+		}
+
+		int decoded = ucobs_decode(i, recv_buf, data);
+		size_t remaining = recv_len - i - 1;
+		memmove(recv_buf, recv_buf + i + 1, remaining);
+		recv_len = remaining;
+
+		if (decoded < 0) {
+			recv_sync = false;
+			return r_EENCODING;
+		}
+
+		*length = decoded;
+		return r_DATA_READY;
+	}
+
+	return r_ENONE;
+}

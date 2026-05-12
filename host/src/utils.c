@@ -1,7 +1,60 @@
 #include "utils.h"
+#include "ui.h"
+#include <stdarg.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <time.h>
+
+void (*LOG_FUNCS[])(const char*) = {
+  ui_log,
+  NULL
+};
+
+static char* debug_log_get_prefix(log_level ll) {
+  switch (ll) {
+  case log_INFO:
+    return "INFO";
+  case log_ERR:
+    return "ERR";
+  case log_CRIT:
+    return "CRIT";
+  case log_WARN:
+    return "WARN";
+  case log_OK:
+    return "OK";
+  default:
+    return "[ll_unknown]";
+  }
+}
+
+void debug_log(log_level ll, char* format, ...) {
+  va_list va_args;
+
+  va_start(va_args, format);
+
+  char* prefix = debug_log_get_prefix(ll);
+  char* msg;
+  vasprintf(&msg, format, va_args);
+  if (msg == NULL) goto ERROR;
+
+  char* full_str;
+  asprintf(&full_str, "[%s] %s", prefix, msg);
+
+  printf("%s\n", full_str);
+  for (int i = 0; LOG_FUNCS[i] != 0; i++) {
+    LOG_FUNCS[i](full_str);
+  }
+
+  return;
+
+ERROR:
+  printf("\n");
+  printf("LOGGING FAILED!\n");
+  printf("Certain errors and events might have not been properly logged!\n");
+}
 
 void sleep_us(size_t microseconds) {
   struct timespec delay;

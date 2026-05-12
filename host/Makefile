@@ -28,13 +28,14 @@ SRCS = \
 	src/vector.c \
 	src/microui_bindings.c \
 	src/serial.c \
-	src/serial_handler.c \
 	src/ui.c \
 	src/utils.c \
+	src/result.c \
+	../common/ucobs.c \
 
 INCLUDES = \
 	include \
-	../protocol \
+	../common \
 	libs/raylib/src \
 	libs/raylib/src/external/glfw/include \
 	libs/microui/src \
@@ -107,7 +108,7 @@ WINDOWS_OBJS = \
 
 all: $(TARGET_OS)
 ifeq ($(DEBUG), 1)
-	echo "Compiling with debug symbols"
+	@echo "Compiling with debug symbols"
 endif
 
 linux: $(LINUX_TARGET)

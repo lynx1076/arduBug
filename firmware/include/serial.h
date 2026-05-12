@@ -3,8 +3,8 @@
 
 #include <stdint.h>
 
-#define SER_RX_BUF_SIZE       64
 #define SER_BAUD_RATE     115200
+#define SER_RX_BUF_SIZE   128
 
 /*
  * Initialize serial with defined baudrate
