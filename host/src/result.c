@@ -14,8 +14,8 @@ char* res_get_string(result res) {
     RES_CASE(r_EDEVICE);
     RES_CASE(r_ENOT_INIT);
     RES_CASE(r_EDOUBLE_INIT);
-    RES_CASE(r_EUSER_CMD);
-    RES_CASE(r_EUSER_PARSE);
+    RES_CASE(r_ECMD);
+    RES_CASE(r_EPARSE);
     default:
       return "UNKNOWN";
   }

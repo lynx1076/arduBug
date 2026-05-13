@@ -13,8 +13,8 @@ typedef enum {
   r_EDEVICE,
   r_ENOT_INIT,
   r_EDOUBLE_INIT,
-  r_EUSER_CMD,
-  r_EUSER_PARSE,
+  r_ECMD,
+  r_EPARSE,
 } result;
 
 char* res_get_string(result res);

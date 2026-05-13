@@ -15,13 +15,14 @@ typedef enum {
   log_WARN,
 } log_level;
 
-extern bool dbg_log_to_printf;
+extern bool dbg_log_to_stdout;
 
 void debug_log(log_level ll, char* format, ...);
 void sleep_us(size_t microseconds);
 void sleep_ms(size_t milliseconds);
 uint64_t micros(void);
 uint64_t millis(void);
-result parse_int(const char* str, long* val);
+result parse_long(const char* str, long* val);
+void print_hex(size_t len, const uint8_t* buf);
 
 #endif

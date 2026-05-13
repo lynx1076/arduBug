@@ -1,64 +1,31 @@
 #include "serial.h"
-#include "serial_protocol.h"
 #include "ucobs.h"
 #include "result.h"
 #include "utils.h"
 #include "vector.h"
+#include <sched.h>
 #include <stdarg.h>
+#include <stdio.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <termios.h>
 #include <dirent.h>
 #include <string.h>
 
-#define READY_TIMEOUT_MS         3000
-
 static int current_port_fd = -1;
 static char current_port[SERIAL_PORT_PATH_MAX] = {0};
 
-static bool is_open = false;
-static bool was_open = false;
 static bool recv_sync = false;
-
-static uint32_t port_open_timeout_ms = 0;
-
-static e_PortState portState = portState_disconnected;
 
 static uint8_t recv_buf[UCOBS_MAX_PACKET_LEN];
 static size_t recv_len = 0;
 
-result ser_update(void) {
-  result res;
-
-  was_open = is_open;
-  is_open = portState == portState_connected;
-
-  if (portState != portState_disconnected && access(current_port, F_OK) != 0) {
-    ser_close();
-  }
-
-  if (portState == portState_connecting) {
-    if (port_open_timeout_ms < millis()) {
-      ser_close();
-    } else {
-      debug_log(log_INFO, "Attempting ping");
-      res = ser_enc_write_va(1, SP_CMD_PING);
-      debug_log(log_INFO, "Completed ping");
-      if (res != r_ENONE) return res;
-
-      portState = portState_connected;
-    }
-  }
-
-  return r_ENONE;
-}
-
 result ser_scan_ports(Vec* return_vec) {
-  result res;
+  result _res;
 
-  res = vec_init(return_vec, SERIAL_PORT_PATH_MAX);
-  if (res != r_ENONE) {
-    return res;
+  _res = vec_init(return_vec, SERIAL_PORT_PATH_MAX);
+  if (_res != r_ENONE) {
+    return _res;
   }
 
   DIR* dev_dir = opendir("/dev");
@@ -66,9 +33,9 @@ result ser_scan_ports(Vec* return_vec) {
     return r_ESYS;
   }
 
-  if (res != r_ENONE) {
+  if (_res != r_ENONE) {
     closedir(dev_dir);
-    return res;
+    return _res;
   }
 
   struct dirent* entry;
@@ -77,10 +44,11 @@ result ser_scan_ports(Vec* return_vec) {
     if (strncmp(entry->d_name, "ttyUSB", 6) == 0) {
       char full_path[PATH_MAX];
       snprintf(full_path, sizeof(full_path), "/dev/%s", entry->d_name);
-      res = vec_push(return_vec, full_path);
-      if (res != r_ENONE) {
+      debug_log(log_INFO, "Discovered open port: %s", full_path);
+      _res = vec_push(return_vec, full_path);
+      if (_res != r_ENONE) {
         vec_clear(return_vec);
-        return res;
+        return _res;
       }
     }
   }
@@ -125,42 +93,34 @@ result ser_open(char* path) {
   tty.c_lflag = 0; // raw input (no echo, no canonical mode)
 
   tty.c_cc[VMIN]  = 0; // non-blocking read
-  tty.c_cc[VTIME] = 1; // 100 ms timeout
+  tty.c_cc[VTIME] = READ_TIMEOUT_100MS; // 100 ms timeout
 
   if (cfsetispeed(&tty, SER_BAUDRATE) != 0 ||
       cfsetospeed(&tty, SER_BAUDRATE) != 0) {
     close(fd);
-    debug_log(log_ERR, "FAILED: %i", __LINE__);
     return r_ESYS;
   }
 
   if (tcsetattr(fd, TCSANOW, &tty) != 0) {
     close(fd);
-    debug_log(log_ERR, "FAILED: %i", __LINE__);
     return r_ESYS;
   }
 
   if (tcflush(fd, TCIOFLUSH)) {
-    debug_log(log_ERR, "FAILED: %i", __LINE__);
     return r_ESYS;
   }
 
   current_port_fd = fd;
   snprintf(current_port, SERIAL_PORT_PATH_MAX, "%s", path);
 
-  portState = portState_connecting;
-  port_open_timeout_ms = millis() + READY_TIMEOUT_MS;
-
   return r_ENONE;
 }
 
 void ser_close(void) {
   close(current_port_fd);
-  is_open = false;
   current_port_fd = -1;
   *current_port = '\0';
   recv_sync = false;
-  portState = portState_disconnected;
 }
 
 char* ser_get_current_port(void) {
@@ -168,21 +128,19 @@ char* ser_get_current_port(void) {
 }
 
 bool ser_is_open(void) {
-  return is_open;
-}
+  if (*current_port != '\0' && access(current_port, F_OK) != 0) {
+    ser_close();
+  }
 
-bool ser_just_opened(void) {
-  return is_open && !was_open;
-}
-
-bool ser_just_closed(void) {
-  return !is_open && was_open;
+  return *current_port != '\0';
 }
 
 result ser_write(size_t length, const uint8_t* data) {
-  if (portState != portState_connected) {
+  if (!ser_is_open()) {
     return r_EDEVICE;
   }
+
+  debug_log(log_INFO, "Writing %zu bytes", length);
 
   ssize_t result = write(current_port_fd, data, length);
 
@@ -197,7 +155,7 @@ result ser_write(size_t length, const uint8_t* data) {
 result ser_enc_write_va(size_t length, ...) {
   va_list va_args;
   uint8_t buf[UCOBS_MAX_PACKET_LEN];
-  result res;
+  result _res;
 
   va_start(va_args, length);
 
@@ -208,13 +166,13 @@ result ser_enc_write_va(size_t length, ...) {
   va_end(va_args);
 
   int encoded_len = ucobs_encode(length, buf + 1, buf + 1);
-  if (encoded_len == -1) return r_EENCODING;
+  if (encoded_len < 0) return r_EENCODING;
 
   buf[0] = 0x00;
   buf[encoded_len + 1] = 0x00;
 
-  res = ser_write(encoded_len + UCOBS_LEN_FRAME, buf);
-  if (res != r_ENONE) return res;
+  _res = ser_write(encoded_len + UCOBS_LEN_FRAME, buf);
+  if (_res != r_ENONE) return _res;
 
   return r_ENONE;
 }
@@ -232,30 +190,29 @@ result ser_read(size_t* length, uint8_t* data) {
     return r_EARGS;
   }
 
-  ssize_t read_res = read(current_port_fd, data, *length);
+  ssize_t read__res = read(current_port_fd, data, *length);
 
-  if (read_res < 0) {
+  if (read__res < 0) {
     ser_close();
     return r_ESYS;
-  } else if (read_res >= 1) {
-    *length = read_res;
+  } else if (read__res >= 1) {
+    *length = read__res;
     return r_DATA_READY;
   }
 
   return r_ENONE;
 }
 
-result ser_enc_read(size_t* length, uint8_t* data) {
+result ser_enc_read(int* length, uint8_t* data) {
 	size_t free_space = UCOBS_MAX_PACKET_LEN - recv_len;
 
-	if (free_space == 0)
-		return r_EENCODING;
+	if (free_space == 0) return r_EENCODING;
 
 	size_t bytes_read = free_space;
-	result res = ser_read(&bytes_read, recv_buf + recv_len);
+	result _res = ser_read(&bytes_read, recv_buf + recv_len);
 
-	if (res != r_ENONE && res != r_DATA_READY)
-		return res;
+	if (_res != r_ENONE && _res != r_DATA_READY)
+		return _res;
 
 	recv_len += bytes_read;
 
@@ -266,7 +223,7 @@ result ser_enc_read(size_t* length, uint8_t* data) {
 			continue;
 		}
 
-		if (!recv_sync) {
+		if (!recv_sync || i == 0) {
 			recv_sync = true;
 			size_t remaining = recv_len - i - 1;
 			memmove(recv_buf,	recv_buf + i + 1, remaining);
@@ -292,3 +249,4 @@ result ser_enc_read(size_t* length, uint8_t* data) {
 
 	return r_ENONE;
 }
+

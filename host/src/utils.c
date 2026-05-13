@@ -1,5 +1,6 @@
 #include "utils.h"
 #include "result.h"
+#include <bits/pthreadtypes.h>
 #include <errno.h>
 #include <stdarg.h>
 #include <stdbool.h>
@@ -9,8 +10,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <pthread.h>
 
-bool dbg_log_to_printf = false;
+bool dbg_log_to_stdout = false;
 
 void (*LOG_FUNCS[])(const char*) = {
   NULL
@@ -46,7 +48,7 @@ void debug_log(log_level ll, char* format, ...) {
   char* full_str;
   asprintf(&full_str, "[%s] %s", prefix, msg);
 
-  if (dbg_log_to_printf) printf("%s\n", full_str);
+  if (dbg_log_to_stdout) printf("%s\n", full_str);
   for (int i = 0; LOG_FUNCS[i] != 0; i++) {
     LOG_FUNCS[i](full_str);
   }
@@ -91,13 +93,22 @@ uint64_t millis(void) {
   return (uint64_t)ts.tv_sec * 1000ULL + ts.tv_nsec / 1000000ULL;
 }
 
-result parse_int(const char* str, long* val) {
-  errno = 0;
+result parse_long(const char* str, long* val) {
   char* endptr;
+
+  errno = 0;
   *val = strtol(str, &endptr, 10);
 
-  if (errno != 0) return r_EUSER_PARSE;
+  if (errno != 0) return r_EPARSE;
+  if (str == endptr) return r_EPARSE;
 
   return r_ENONE;
+}
+
+void print_hex(size_t len, const uint8_t* buf) {
+  for (size_t i = 0; i < len; i++) {
+    printf("0x%02x ", buf[i]);
+  }
+  printf("\n");
 }
 

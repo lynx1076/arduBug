@@ -35,11 +35,11 @@ void clh_update(void) {
   while (*token_r != '\0') {
     while (*token_r != '\0' && !isspace(*token_r)) *token_w++ = *token_r++;
     *token_r++ = '\0';
-    token_cnt++;
     while (*token_r != '\0' && isspace(*token_r)) token_r++;
     token_w = token_r;
     tokens[token_cnt] = token_start;
     token_start = token_r;
+    token_cnt++;
   }
 
   if (0);
@@ -48,12 +48,13 @@ void clh_update(void) {
   COMMANDS
 #undef X
   else {
-    printf("Command not recognized!\n");
+    printf("Command not recognized\n");
     return;
   }
 
   if (_res != r_ENONE) {
     printf("Command returned error code: (%i)\n-> %s\n", _res, res_get_string(_res));
+    debug_log(log_ERR, "Command failed");
   }
 }
 

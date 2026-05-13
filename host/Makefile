@@ -8,29 +8,40 @@ DEBUG_FLAGS =
 OPT_FLAG = -O3
 
 ifeq ($(DEBUG), 1)
-    DEBUG_FLAGS = -g
-    OPT_FLAG = -O0
+	DEBUG_FLAGS = -g
+	OPT_FLAG = -O0
 endif
 
 CC = gcc
 
 SRCS = \
-    src/main.c \
-    src/vector.c \
-    src/serial.c \
-    src/utils.c \
-    src/result.c \
-		src/cli_handler.c \
-		src/commands.c \
-    ../common/ucobs.c
+	src/main.c \
+	src/vector.c \
+	src/serial.c \
+	src/utils.c \
+	src/result.c \
+	src/cli_handler.c \
+	src/commands.c
+
+COMMON_SRCS = \
+	../common/ucobs.c
 
 INCLUDES = \
-    include \
-    ../common
+	include \
+	../common
 
-CFLAGS = -Wall -Wextra -std=c11 -D_GNU_SOURCE -D_POSIX_C_SOURCE=199309L $(addprefix -I,$(INCLUDES)) $(OPT_FLAG) $(DEBUG_FLAGS)
+CFLAGS = \
+	-Wall \
+	-Wextra \
+	-std=c11 \
+	-D_GNU_SOURCE \
+	-D_POSIX_C_SOURCE=199309L \
+	$(addprefix -I,$(INCLUDES)) \
+	$(OPT_FLAG) \
+	$(DEBUG_FLAGS)
 
-OBJS = $(SRCS:%.c=$(BUILD_DIR)/linux/%.o)
+OBJS = $(SRCS:%.c=$(BUILD_DIR)/%.o)
+OBJS += $(patsubst ../common/%.c,$(BUILD_DIR)/common/%.o,$(COMMON_SRCS))
 
 all: $(TARGET_ELF)
 ifeq ($(DEBUG), 1)
@@ -41,7 +52,13 @@ $(TARGET_ELF): $(OBJS)
 	@mkdir -p $(dir $@)
 	$(CC) $(OBJS) -o $@ $(LDFLAGS)
 
-$(BUILD_DIR)/linux/%.o: %.c
+# Rule for local project files
+$(BUILD_DIR)/%.o: %.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+# Rule for external common files
+$(BUILD_DIR)/common/%.o: ../common/%.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
