@@ -3,12 +3,14 @@
 
 #define SP_COMPAT_CODE          0x03
 
-#define SP_SIG_ESC              0xA2
 #define SP_SIG_ERR              0xA3
 #define SP_SIG_OK               0xA4
 #define SP_SIG_END_CMD          0xA5
 
 #define SP_CMD_PING             0xC1
+
+// Reading and writing single pins:
+// CMD, PORT, PIN, STATE
 
 #define SP_CMD_WRITE            0xC2
 #define SP_CMD_WRITE_IODIR      0xC3

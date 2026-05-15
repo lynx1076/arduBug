@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <time.h>
 #include <pthread.h>
 
@@ -100,7 +101,23 @@ result parse_long(const char* str, long* val) {
   *val = strtol(str, &endptr, 10);
 
   if (errno != 0) return r_EPARSE;
-  if (str == endptr) return r_EPARSE;
+  if (str + strlen(str) != endptr) return r_EPARSE;
+
+  return r_ENONE;
+}
+
+result parse_hex_byte(const char* str, uint8_t* byte) {
+  char* endptr;
+
+  if (strncasecmp(str, "0x", 2) == 0) str += 2;
+
+  if (strlen(str) > 2) return r_EPARSE;
+
+  errno = 0;
+  *byte = strtol(str, &endptr, 16);
+
+  if (errno != 0) return r_EPARSE;
+  if (str + strlen(str) - 1 != endptr) return r_EPARSE;
 
   return r_ENONE;
 }

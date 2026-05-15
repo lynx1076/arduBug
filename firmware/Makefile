@@ -10,14 +10,16 @@ SRCS = \
 	src/mcp23017.c \
 	src/serial.c \
 	src/cmd_handler.c \
-	src/utils.c \
+	src/utils.c
+
+COMMON_SRCS = \
 	../common/ucobs.c
 
 BUILD_DIR = .build
 
 INCLUDES = \
 	include \
-	../common \
+	../common
 
 CFLAGS = \
 	-Wall \
@@ -26,12 +28,13 @@ CFLAGS = \
 	-std=c11 \
 	-mmcu=$(MCU) \
 	-DF_CPU=16000000UL \
-	-O3 \
+	-O3
 
 LDFLAGS = \
 	-mmcu=$(MCU)
 
 OBJS = $(SRCS:%.c=$(BUILD_DIR)/%.o)
+OBJS += $(patsubst ../common/%.c,$(BUILD_DIR)/common/%.o,$(COMMON_SRCS))
 
 ELF = $(BUILD_DIR)/$(TARGET).elf
 HEX = $(BUILD_DIR)/$(TARGET).hex
@@ -44,11 +47,18 @@ $(HEX): $(ELF)
 	$(OBJCOPY) -O ihex -R .eeprom $< $@
 
 $(ELF): $(OBJS)
+	@mkdir -p $(dir $@)
 	$(CC) $(OBJS) -o $@ $(LDFLAGS)
 
+# Rule for local project files
 $(BUILD_DIR)/%.o: %.c
 	@mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) $(addprefix -I, $(INCLUDES)) -c $< -o $@
+	$(CC) $(CFLAGS) $(addprefix -I,$(INCLUDES)) -c $< -o $@
+
+# Rule for external common files
+$(BUILD_DIR)/common/%.o: ../common/%.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) $(addprefix -I,$(INCLUDES)) -c $< -o $@
 
 flash: $(HEX)
 ifndef PORT

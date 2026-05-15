@@ -21,7 +21,9 @@ SRCS = \
 	src/utils.c \
 	src/result.c \
 	src/cli_handler.c \
-	src/commands.c
+	src/commands.c \
+	src/io.c \
+	src/debugger.c \
 
 COMMON_SRCS = \
 	../common/ucobs.c

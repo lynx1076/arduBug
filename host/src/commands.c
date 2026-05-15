@@ -1,11 +1,13 @@
 #include "commands.h"
+#include "io.h"
+#include "pins.h"
 #include "result.h"
 #include "serial_protocol.h"
 #include "ucobs.h"
 #include "utils.h"
 #include "vector.h"
 #include "serial.h"
-#include "pins.h"
+#include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -13,88 +15,11 @@
 
 Vec device_list = VEC_ZERO;
 
-
-result get_pin_from_token(const char* token, uint8_t* pin) {
-  result _res;
-
-#define PIN_CASE(NAME, ALT, PIN) \
-  if (strcmp(NAME, token) == 0 || strcmp(ALT, token) == 0) do { *pin= PIN; return r_ENONE; } while (0)
-  
-  PIN_CASE("RWB", "rw", PINS_CTRL_PIN_RWB);
-  PIN_CASE("NMIB", "nmi", PINS_CTRL_PIN_NMIB);
-  PIN_CASE("IRQB", "irq", PINS_CTRL_PIN_IRQB);
-  PIN_CASE("VPB", "vp", PINS_CTRL_PIN_VPB);
-  PIN_CASE("EXT_CLK_EN", "eclk_en", PINS_CTRL_PIN_EXT_CLK);
-  PIN_CASE("EXT_CLK", "eclk", PINS_CTRL_PIN_EXT_CLK);
-  PIN_CASE("EXT_RESETB", "eres", PINS_CTRL_PIN_EXT_RESETB);
-  PIN_CASE("EXT_RWB", "erw", PINS_CTRL_PIN_EXT_RWB);
-
-  PIN_CASE("DATA0", "d0", PINS_DATA_PIN_0);
-  PIN_CASE("DATA1", "d1", PINS_DATA_PIN_1);
-  PIN_CASE("DATA2", "d2", PINS_DATA_PIN_2);
-  PIN_CASE("DATA3", "d3", PINS_DATA_PIN_3);
-  PIN_CASE("DATA4", "d4", PINS_DATA_PIN_4);
-  PIN_CASE("DATA5", "d5", PINS_DATA_PIN_5);
-  PIN_CASE("DATA6", "d6", PINS_DATA_PIN_6);
-  PIN_CASE("DATA7", "d7", PINS_DATA_PIN_7);
-  
-  PIN_CASE("ADDR0", "a0", PINS_ADDR_PIN_0);
-  PIN_CASE("ADDR1", "a1", PINS_ADDR_PIN_1);
-  PIN_CASE("ADDR2", "a2", PINS_ADDR_PIN_2);
-  PIN_CASE("ADDR3", "a3", PINS_ADDR_PIN_3);
-  PIN_CASE("ADDR4", "a4", PINS_ADDR_PIN_4);
-  PIN_CASE("ADDR5", "a5", PINS_ADDR_PIN_5);
-  PIN_CASE("ADDR6", "a6", PINS_ADDR_PIN_6);
-  PIN_CASE("ADDR7", "a7", PINS_ADDR_PIN_7);
-
-  PIN_CASE("ADDR8", "a8", PINS_ADDR_PIN_0);
-  PIN_CASE("ADDR9", "a9", PINS_ADDR_PIN_1);
-  PIN_CASE("ADDR10", "a10", PINS_ADDR_PIN_2);
-  PIN_CASE("ADDR11", "a11", PINS_ADDR_PIN_3);
-  PIN_CASE("ADDR12", "a12", PINS_ADDR_PIN_4);
-  PIN_CASE("ADDR13", "a13", PINS_ADDR_PIN_5);
-  PIN_CASE("ADDR14", "a14", PINS_ADDR_PIN_6);
-  PIN_CASE("ADDR15", "a15", PINS_ADDR_PIN_7);
-
-#undef PIN_CASE
-
-  long pin_long;
-  _res = parse_long(token, &pin_long);
-  if (_res != r_ENONE) return _res;
-
-  if (pin_long < 0 || pin_long > 32) {
-    return r_EBOUNDS;
-  }
-
-  *pin = (uint8_t)pin_long;
-
-  return r_ENONE;
-}
-
-result get_state_from_token(const char* token, bool* state) {
-#define STATE_CASE(NAME, STATE) \
-  if (strcmp(NAME, token) == 0) do { *state = STATE; return r_ENONE; } while (0)
-  
-  STATE_CASE("1", HIGH);
-  STATE_CASE("high", HIGH);
-
-  STATE_CASE("0", LOW);
-  STATE_CASE("low", LOW);
-
-  STATE_CASE("output", OUTPUT);
-  STATE_CASE("out", OUTPUT);
-  STATE_CASE("in", INPUT);
-
-#undef STATE_CASE
-
-  return r_EPARSE;
-}
-
 result cmd_quit(const char** tokens, unsigned int arg_cnt) {
   (void)tokens;
 
   if (arg_cnt != 0) {
-    return r_ECMD;
+    return r_EARGS;
   }
 
   printf("Releasing resources:\n");
@@ -118,7 +43,7 @@ result cmd_scan_devices(const char** tokens, unsigned int arg_cnt) {
 
   result _res;
   if (arg_cnt != 0) {
-    return r_ECMD;
+    return r_EARGS;
   }
   
   if (device_list.memory) vec_free(&device_list);
@@ -141,7 +66,7 @@ result cmd_connect(const char** tokens, unsigned int arg_cnt) {
 
   result _res;
   if (arg_cnt != 1) {
-    return r_ECMD;
+    return r_EARGS;
   }
   
   long device_index;
@@ -163,7 +88,7 @@ result cmd_connect(const char** tokens, unsigned int arg_cnt) {
     return _res;
   }
 
-  printf("Opened port %s successfully\n", device_path);
+  printf("Opened port %s successfuly\n", device_path);
 
   return r_ENONE;
 }
@@ -172,7 +97,7 @@ result cmd_disconnect(const char** tokens, unsigned int arg_cnt) {
   (void)tokens;
 
   if (arg_cnt != 0) {
-    return r_ECMD;
+    return r_EARGS;
   }
 
   if (ser_is_open()) {
@@ -189,7 +114,7 @@ result cmd_status(const char** tokens, unsigned int arg_cnt) {
   (void)tokens;
 
   if (arg_cnt != 0) {
-    return r_ECMD;
+    return r_EARGS;
   }
 
   if (ser_is_open()) {
@@ -207,7 +132,7 @@ result cmd_ping(const char** tokens, unsigned int arg_cnt) {
   result _res;
 
   if (arg_cnt != 0) {
-    return r_ECMD;
+    return r_EARGS;
   }
 
   if (!ser_is_open()) {
@@ -219,21 +144,18 @@ result cmd_ping(const char** tokens, unsigned int arg_cnt) {
   _res = ser_enc_write_va(1, SP_CMD_PING);
   if (_res != r_ENONE) return _res;
 
-  uint8_t reply[UCOBS_MAX_PACKET_LEN_NO_FRAME];
-  int reply_len;
-  _res = ser_enc_read(&reply_len, reply);
-  if (_res != r_DATA_READY) return _res;
+  uint8_t reply;
+  _res = ser_enc_read_va(1, &reply);
+  if (_res != r_ENONE) return _res;
   
-  if (reply_len != 1) {
-    return r_EDEVICE;
-  }
+  printf("Ping successful\n");
 
-  printf("Ping successfull\n");
+  debug_log(log_INFO, "Read device compat code as %u", reply);
 
-  if (*reply != SP_COMPAT_CODE) {
+  if (reply != SP_COMPAT_CODE) {
     printf("Warning: serial protocol compat codes are not equal\n");
     printf("Software compat code: %u", SP_COMPAT_CODE);
-    printf("Device compat code: %u", *reply);
+    printf("Device compat code: %u", reply);
   }
 
   return r_ENONE;
@@ -245,7 +167,7 @@ result cmd_version(const char** tokens, unsigned int arg_cnt) {
   result _res;
 
   if (arg_cnt != 0) {
-    return r_ECMD;
+    return r_EARGS;
   }
 
   if (!ser_is_open()) {
@@ -258,12 +180,12 @@ result cmd_version(const char** tokens, unsigned int arg_cnt) {
   if (_res != r_ENONE) return _res;
 
   uint8_t reply[UCOBS_MAX_PACKET_LEN_NO_FRAME];
-  int reply_len;
+  size_t reply_len;
   _res = ser_enc_read(&reply_len, reply);
   if (_res != r_DATA_READY) return _res;
   
   if (reply_len > 0) {
-    printf("Version [%i]: '%.*s'\n", reply_len, reply_len, reply);
+    printf("Version [%zu]: '%.*s'\n", reply_len, (int)reply_len, reply);
   } else {
     printf("Received empty packet\n");
     return r_EDEVICE;
@@ -274,7 +196,7 @@ result cmd_version(const char** tokens, unsigned int arg_cnt) {
 
 result cmd_show_debug_logs(const char** tokens, unsigned int arg_cnt) {
   if (arg_cnt != 1) {
-    return r_ECMD;
+    return r_EARGS;
   }
 
   if (strcmp(tokens[1], "true") == 0) {
@@ -288,141 +210,6 @@ result cmd_show_debug_logs(const char** tokens, unsigned int arg_cnt) {
   } else {
     return r_EPARSE;
   }
-
-  return r_ENONE;
-}
-
-result cmd_write(const char** tokens, unsigned int arg_cnt) {
-  result _res;
-
-  if (arg_cnt != 2) {
-    return r_ECMD;
-  }
-
-  uint8_t pin;
-  bool state;
-
-  _res = get_pin_from_token(tokens[1], &pin);
-  if (_res != r_ENONE) return _res;
-  _res = get_state_from_token(tokens[2], &state);
-  if (_res != r_ENONE) return _res;
-
-  uint8_t reply[UCOBS_MAX_PACKET_LEN];
-  int reply_length;
-
-  _res = ser_enc_write_va(3, SP_CMD_WRITE_IODIR, pin, OUTPUT);
-  if (_res != r_ENONE) return _res;
-
-  _res = ser_enc_read(&reply_length, reply);
-  if (_res != r_DATA_READY) return _res;
-  if (reply_length != 1) return r_EDEVICE;
-  if (*reply != OUTPUT) return r_EDEVICE;
-
-  _res = ser_enc_write_va(3, SP_CMD_WRITE, pin, state);
-  if (_res != r_ENONE) return _res;
-
-  _res = ser_enc_read(&reply_length, reply);
-  if (_res != r_DATA_READY) return _res;
-  if (reply_length != 1) return r_EDEVICE;
-
-  printf("Writing %s to %u: %s\n", state ? "HIGH" : "LOW", pin, !(*reply ^ state) ? "successfull" : "failed");
-  printf("Pin %i is now %s\n", pin, *reply ? "HIGH" : "LOW");
-
-  return r_ENONE;
-}
-
-result cmd_read(const char** tokens, unsigned int arg_cnt) {
-  result _res;
-
-  if (arg_cnt != 1) {
-    return r_ECMD;
-  }
-
-  uint8_t pin;
-
-  _res = get_pin_from_token(tokens[1], &pin);
-  if (_res != r_ENONE) return _res;
-
-  uint8_t reply[UCOBS_MAX_PACKET_LEN];
-  int reply_length;
-
-  _res = ser_enc_write_va(3, SP_CMD_WRITE_IODIR, pin, INPUT);
-  if (_res != r_ENONE) return _res;
-
-  _res = ser_enc_read(&reply_length, reply);
-  if (_res != r_DATA_READY) return _res;
-  if (reply_length != 1) return r_EDEVICE;
-  if (*reply != INPUT) return r_EDEVICE;
-
-  _res = ser_enc_write_va(2, SP_CMD_WRITE, pin);
-  if (_res != r_ENONE) return _res;
-
-  _res = ser_enc_read(&reply_length, reply);
-  if (_res != r_DATA_READY) return _res;
-  if (reply_length != 1) return r_EDEVICE;
-
-  printf("Reading %u: %s\n", pin, *reply ? "HIGH" : "LOW");
-
-  return r_ENONE;
-}
-
-result cmd_pulse(const char** tokens, unsigned int arg_cnt) {
-  result _res;
-
-  if (arg_cnt != 2) {
-    return r_ECMD;
-  }
-
-  uint8_t pin;
-  long delay_us;
-
-  _res = get_pin_from_token(tokens[1], &pin);
-  if (_res != r_ENONE) return _res;
-  _res = parse_long(tokens[2], &delay_us);
-  if (_res != r_ENONE) return _res;
-
-  uint8_t reply[UCOBS_MAX_PACKET_LEN];
-  int reply_length;
-
-  _res = ser_enc_write_va(3, SP_CMD_WRITE_IODIR, pin, OUTPUT);
-  if (_res != r_ENONE) return _res;
-
-  _res = ser_enc_read(&reply_length, reply);
-  if (_res != r_DATA_READY) return _res;
-  if (reply_length != 1) return r_EDEVICE;
-  if (*reply != OUTPUT) return r_EDEVICE;
-
-  _res = ser_enc_write_va(2, SP_CMD_READ, pin);
-  if (_res != r_ENONE) return _res;
-
-  _res = ser_enc_read(&reply_length, reply);
-  if (_res != r_DATA_READY) return _res;
-  if (reply_length != 1) return r_EDEVICE;
-
-  bool base_state = *reply;
-
-  _res = ser_enc_write_va(3, SP_CMD_WRITE, pin, !base_state);
-  if (_res != r_ENONE) return _res;
-
-  _res = ser_enc_read(&reply_length, reply);
-  if (_res != r_DATA_READY) return _res;
-  if (reply_length != 1) return r_EDEVICE;
-
-  printf("Writing %s to %u: %s\n", !base_state ? "HIGH" : "LOW", pin, !(*reply ^ !base_state) ? "successfull" : "failed");
-  printf("Pin %i is now %s\n", pin, *reply ? "HIGH" : "LOW");
-
-  printf("Sleeping for %ld\n", delay_us);
-  sleep_us(delay_us);
-
-  _res = ser_enc_write_va(3, SP_CMD_WRITE, pin, base_state);
-  if (_res != r_ENONE) return _res;
-
-  _res = ser_enc_read(&reply_length, reply);
-  if (_res != r_DATA_READY) return _res;
-  if (reply_length != 1) return r_EDEVICE;
-
-  printf("Writing %s to %u: %s\n", base_state ? "HIGH" : "LOW", pin, !(*reply ^ base_state) ? "successfull" : "failed");
-  printf("Pin %i is now %s\n", pin, *reply ? "HIGH" : "LOW");
 
   return r_ENONE;
 }

@@ -1,9 +1,7 @@
 #include "mcp23017.h"
 #include "pins.h"
-#include "serial.h"
 #include "twi.h"
 #include <stdint.h>
-#include <stdio.h>
 
 #define MCP_ADDR_IO0      0x20
 #define MCP_ADDR_IO1      0x21

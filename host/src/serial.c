@@ -5,6 +5,8 @@
 #include "vector.h"
 #include <sched.h>
 #include <stdarg.h>
+#include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -66,13 +68,11 @@ result ser_open(char* path) {
 
   int fd = open(path, O_RDWR | O_NOCTTY);
   if (fd < 0) {
-    debug_log(log_ERR, "FAILED: %i", __LINE__);
     return r_ESYS;
   }
 
   struct termios tty;
   if (tcgetattr(fd, &tty) != 0) {
-    debug_log(log_ERR, "FAILED: %i", __LINE__);
     close(fd);
     return r_ESYS;
   }
@@ -95,8 +95,7 @@ result ser_open(char* path) {
   tty.c_cc[VMIN]  = 0; // non-blocking read
   tty.c_cc[VTIME] = READ_TIMEOUT_100MS; // 100 ms timeout
 
-  if (cfsetispeed(&tty, SER_BAUDRATE) != 0 ||
-      cfsetospeed(&tty, SER_BAUDRATE) != 0) {
+  if (cfsetispeed(&tty, SER_BAUDRATE) != 0 || cfsetospeed(&tty, SER_BAUDRATE) != 0) {
     close(fd);
     return r_ESYS;
   }
@@ -140,39 +139,12 @@ result ser_write(size_t length, const uint8_t* data) {
     return r_EDEVICE;
   }
 
-  debug_log(log_INFO, "Writing %zu bytes", length);
-
   ssize_t result = write(current_port_fd, data, length);
 
   if (result <= 0 || (size_t)result != length) {
     ser_close();
     return r_ESYS;
   }
-
-  return r_ENONE;
-}
-
-result ser_enc_write_va(size_t length, ...) {
-  va_list va_args;
-  uint8_t buf[UCOBS_MAX_PACKET_LEN];
-  result _res;
-
-  va_start(va_args, length);
-
-  for (size_t i = 1; i <= length; i++) {
-    buf[i] = va_arg(va_args, int);
-  }
-
-  va_end(va_args);
-
-  int encoded_len = ucobs_encode(length, buf + 1, buf + 1);
-  if (encoded_len < 0) return r_EENCODING;
-
-  buf[0] = 0x00;
-  buf[encoded_len + 1] = 0x00;
-
-  _res = ser_write(encoded_len + UCOBS_LEN_FRAME, buf);
-  if (_res != r_ENONE) return _res;
 
   return r_ENONE;
 }
@@ -203,7 +175,7 @@ result ser_read(size_t* length, uint8_t* data) {
   return r_ENONE;
 }
 
-result ser_enc_read(int* length, uint8_t* data) {
+result ser_enc_read(size_t* length, uint8_t* data) {
 	size_t free_space = UCOBS_MAX_PACKET_LEN - recv_len;
 
 	if (free_space == 0) return r_EENCODING;
@@ -248,5 +220,52 @@ result ser_enc_read(int* length, uint8_t* data) {
 	}
 
 	return r_ENONE;
+}
+
+result ser_enc_write_va(const size_t length, ...) {
+  va_list va_args;
+  uint8_t buf[UCOBS_MAX_PACKET_LEN];
+  result _res;
+
+  va_start(va_args, length);
+
+  for (size_t i = 1; i <= length; i++) {
+    buf[i] = va_arg(va_args, int);
+  }
+
+  va_end(va_args);
+
+  int encoded_len = ucobs_encode(length, buf + 1, buf + 1);
+  if (encoded_len < 0) return r_EENCODING;
+
+  buf[0] = 0x00;
+  buf[encoded_len + 1] = 0x00;
+
+  _res = ser_write(encoded_len + UCOBS_LEN_FRAME, buf);
+  if (_res != r_ENONE) return _res;
+
+  return r_ENONE;
+}
+
+result ser_enc_read_va(const size_t expected_length, ...) {
+  result _res;
+
+  size_t read_length;
+  uint8_t read_data[UCOBS_MAX_DATA_LEN];
+  _res = ser_enc_read(&read_length, read_data);
+  if (_res != r_DATA_READY) return _res;
+  if (read_length != expected_length) return r_EDEVICE;
+
+  va_list va_args;
+
+  va_start(va_args, expected_length);
+
+  for (size_t i = 0; i < expected_length; i++) {
+    *va_arg(va_args, uint8_t*) = read_data[i];
+  }
+
+  va_end(va_args);
+
+  return r_ENONE;
 }
 

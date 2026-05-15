@@ -1,13 +1,15 @@
-#include <avr/io.h>
-#include <avr/interrupt.h>
-#include <stdint.h>
-#include <util/delay.h>
-#include <stdbool.h>
+#include "pins.h"
+#include "mcp23017.h"
 #include "ucobs.h"
 #include "cmd_handler.h"
 #include "serial.h"
 #include "twi.h"
 #include "ucobs.h"
+#include <avr/io.h>
+#include <avr/interrupt.h>
+#include <stdint.h>
+#include <util/delay.h>
+#include <stdbool.h>
 
 
 #define LED_PIN           PB5
@@ -19,33 +21,6 @@
 
 static uint32_t ms_counter = 0;
 static uint32_t led_timer = 0;
-
-void main_loop(void) {
-  static uint8_t data_buff[RECV_BUFF_LEN];
-  static int16_t data_buff_index = 0;
-  static bool recv_sync = false;
-
-  uint8_t byte;
-  if (ser_read(&byte)) return;
-
-  if (!recv_sync) {
-    if (byte == 0x00) recv_sync = true;
-    return;
-  }
-
-  if (byte != 0x00) {
-    data_buff[data_buff_index++] = byte;
-  } else {
-    if ((data_buff_index = ucobs_decode(data_buff_index, data_buff, data_buff)) != -1) {
-      uint8_t resp_len = cmd_exec(data_buff_index, data_buff);
-      resp_len = ucobs_encode(resp_len, cmd_response_buf, data_buff);
-      ser_write(0x00);
-      ser_write_buf(resp_len, data_buff);
-      ser_write(0x00);
-    }
-    data_buff_index = 0;
-  }
-}
 
 int main(void) {
   TCCR0A = (1 << WGM01);
@@ -60,8 +35,36 @@ int main(void) {
 
   sei();
 
+  for (int i = 0; i < 32; i++) {
+    mcp_write_pin_iodir(i, INPUT);
+    mcp_write_pin_pull_up(i, LOW);
+  }
+
+  uint8_t data_buff[RECV_BUFF_LEN];
+  int16_t data_buff_index = 0;
+  bool recv_sync = false;
+
   while (true) {
-    main_loop();
+    uint8_t byte;
+    if (ser_read(&byte)) continue;
+
+    if (!recv_sync) {
+      if (byte == 0x00) recv_sync = true;
+      continue;
+    }
+
+    if (byte != 0x00) {
+      data_buff[data_buff_index++] = byte;
+    } else {
+      if ((data_buff_index = ucobs_decode(data_buff_index, data_buff, data_buff)) != -1) {
+        uint8_t resp_len = cmd_exec(data_buff_index, data_buff);
+        resp_len = ucobs_encode(resp_len, cmd_response_buf, data_buff);
+        ser_write(0x00);
+        ser_write_buf(resp_len, data_buff);
+        ser_write(0x00);
+      }
+      data_buff_index = 0;
+    }
   }
 }
 

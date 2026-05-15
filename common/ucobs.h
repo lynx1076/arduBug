@@ -10,8 +10,11 @@
 #include <stdlib.h>
 
 
+// Maximum length of UCOBS data in packet
+#define UCOBS_MAX_DATA_LEN                    254
+
 // Maximum length of UCOBS packet with no framing-bytes
-#define UCOBS_MAX_PACKET_LEN_NO_FRAME         255
+#define UCOBS_MAX_PACKET_LEN_NO_FRAME         UCOBS_MAX_DATA_LEN + 1
 
 // UCOBS framing-bytes length
 #define UCOBS_LEN_FRAME                       2
