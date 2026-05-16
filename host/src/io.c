@@ -2,15 +2,26 @@
 #include "pins.h"
 #include "result.h"
 #include "utils.h"
-#include "ucobs.h"
 #include "serial_protocol.h"
 #include "serial.h"
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
 
-static uint8_t reply[UCOBS_MAX_PACKET_LEN];
-static size_t reply_length;
+typedef struct {
+  int8_t is_high;
+  int8_t is_input;
+} PinState;
+
+static PinState pin_states[PIN_COUNT];
+
+result io_init(void) {
+  for (int i = 0; i < PIN_COUNT; i++) {
+    pin_states[i] = (PinState){-1, -1};
+  }
+
+  return r_ENONE;
+}
 
 result io_get_pin_from_token(const char* token, uint8_t* pin) {
   result _res;
@@ -88,78 +99,85 @@ result io_get_state_from_token(const char* token, bool* state) {
   return r_EPARSE;
 }
 
-result io_write_iodir(uint8_t pin, bool state) {
+result io_write_iodir(uint8_t pin, bool set_input) {
   result _res;
 
-  _res = ser_enc_write_va(3, SP_CMD_WRITE_IODIR, pin, state);
+  if (pin_states[pin].is_input != -1) {
+    if (BOOL_CMP(pin_states[pin].is_input, set_input)) {
+      debug_log(log_INFO, "Skipped writing %s to %u as pin is already configured", set_input ? "INPUT" : "OUTPUT", pin);
+      return r_ENONE;
+    }
+  }
+
+  _res = ser_enc_write_va(3, SP_CMD_WRITE_IODIR, pin, set_input ? INPUT : OUTPUT);
   if (_res != r_ENONE) return _res;
 
-  _res = ser_enc_read(&reply_length, reply);
-  if (_res != r_DATA_READY) return _res;
-  if (reply_length != 1) return r_EDEVICE;
-  if (*reply != state) return r_EDEVICE;
+  bool is_input_read;
+  _res = ser_enc_read_va(1, &is_input_read);
+  if (_res != r_ENONE) return _res;
 
-  _res = BOOL_CMP(state, *reply) ? r_ENONE : r_EDEVICE;
+  _res = BOOL_CMP(set_input, is_input_read) ? r_ENONE : r_EDEVICE;
 
-  if (_res == r_ENONE) debug_log(log_INFO, "Successfully wrote %s to %u", state ? "INPUT" : "OUTPUT", pin);
-  else {
-    debug_log(log_INFO, "Failed to write %s to pin %u", state ? "INPUT" : "OUTPUT", pin);
+  if (_res == r_ENONE) {
+    debug_log(log_INFO, "Successfully wrote %s to %u", set_input ? "INPUT" : "OUTPUT", pin);
+  } else {
+    debug_log(log_INFO, "Failed to write %s to pin %u", set_input ? "INPUT" : "OUTPUT", pin);
     return _res;
   }
+
+  pin_states[pin].is_input = set_input ? INPUT : OUTPUT;
+  pin_states[pin].is_high = -1;
 
   return r_ENONE;
 }
 
-result io_write_pin(uint8_t pin, bool state) {
+result io_write_pin(uint8_t pin, bool set_high) {
   result _res;
 
   _res = io_write_iodir(pin, OUTPUT);
   if (_res != r_ENONE) return _res;
 
-  _res = ser_enc_write_va(3, SP_CMD_WRITE, pin, state);
+  if (pin_states[pin].is_high != -1) {
+    if (BOOL_CMP(pin_states[pin].is_high, set_high)) {
+      debug_log(log_INFO, "Skipped writing %s to pin %u as pin is already configured", set_high ? "HIGH" : "LOW", pin);
+      return r_ENONE;
+    }
+  }
+
+  _res = ser_enc_write_va(3, SP_CMD_WRITE, pin, set_high);
   if (_res != r_ENONE) return _res;
 
-  _res = ser_enc_read(&reply_length, reply);
-  if (_res != r_DATA_READY) return _res;
-  if (reply_length != 1) return r_EDEVICE;
-
-  _res = BOOL_CMP(state, *reply) ? r_ENONE : r_EDEVICE;
-
-  if (_res == r_ENONE) debug_log(log_INFO, "Successfully wrote %s to %u", state ? "HIGH" : "LOW", pin);
-  else debug_log(log_INFO, "Failed to write %s to pin %u", state ? "HIGH" : "LOW", pin);
-
-  return _res;
-}
-
-result io_get_output_pin_state(uint8_t pin, bool* state) {
-  result _res;
-  
-  _res = ser_enc_write_va(2, SP_CMD_WRITE, pin);
+  bool is_high_read;
+  _res = ser_enc_read_va(1, &is_high_read);
   if (_res != r_ENONE) return _res;
 
-  _res = ser_enc_read_va(1, reply);
-  if (_res != r_DATA_READY) return _res;
+  _res = BOOL_CMP(is_high_read, set_high) ? r_ENONE : r_EDEVICE;
 
-  *state = *reply;
+  if (_res == r_ENONE) {
+    debug_log(log_INFO, "Successfully wrote %s to %u", set_high ? "HIGH" : "LOW", pin);
+  } else {
+    debug_log(log_INFO, "Failed to write %s to pin %u", set_high ? "HIGH" : "LOW", pin);
+    return _res;
+  }
+
+  pin_states[pin].is_high = set_high;
 
   return r_ENONE;
 }
 
-result io_read_pin(uint8_t pin, bool* state) {
+result io_read_pin(uint8_t pin, bool* is_high) {
   result _res;
-  
+
   _res = io_write_iodir(pin, INPUT);
   if (_res != r_ENONE) return _res;
 
   _res = ser_enc_write_va(2, SP_CMD_READ, pin);
   if (_res != r_ENONE) return _res;
 
-  _res = ser_enc_read_va(1, reply);
+  _res = ser_enc_read_va(1, is_high);
   if (_res != r_ENONE) return _res;
 
-  *state = *reply;
-
-  debug_log(log_INFO, "Read %s on pin %u", *state ? "HIGH" : "LOW", pin);
+  debug_log(log_INFO, "Read from pin %u -> %s", pin, *is_high ? "HIGH" : "LOW");
 
   return r_ENONE;
 }

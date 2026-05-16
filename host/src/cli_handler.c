@@ -2,7 +2,6 @@
 #include "commands.h"
 #include "result.h"
 #include "utils.h"
-#include <ctype.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
@@ -11,7 +10,10 @@ void clh_update(void) {
   result _res;
   static bool prompt_intact = false;
   char user_input[CLH_MAX_USER_INPUT_LEN];
-  char* tokens[(CLH_MAX_USER_INPUT_LEN + 1) / 2];
+  
+  const int max_tokens = (CLH_MAX_USER_INPUT_LEN + 1) / 2;
+  char* tokens[max_tokens];
+  
   user_input[0] = '\0';
   int token_cnt = 0;
 
@@ -28,23 +30,26 @@ void clh_update(void) {
 
   prompt_intact = false;
 
-  char* token_r = user_input;
-  char* token_w = user_input;
-  char* token_start = user_input;
+  user_input[strcspn(user_input, "\r\n")] = '\0';
 
-  while (*token_r != '\0') {
-    while (*token_r != '\0' && !isspace(*token_r)) *token_w++ = *token_r++;
-    *token_r++ = '\0';
-    while (*token_r != '\0' && isspace(*token_r)) token_r++;
-    token_w = token_r;
-    tokens[token_cnt] = token_start;
-    token_start = token_r;
+  char* token = strtok(user_input, " \t\r\n");
+  while (token != NULL) {
+    if (token_cnt >= max_tokens) {
+      debug_log(log_ERR, "Too many input tokens entered");
+      break; 
+    }
+    tokens[token_cnt] = token;
     token_cnt++;
+    token = strtok(NULL, " \t\r\n");
+  }
+
+  if (token_cnt == 0) {
+    return;
   }
 
   if (0);
 #define X(CMD_FUNC, CMD) \
-  else if (strcmp(CMD, user_input) == 0) _res = CMD_FUNC((const char**)tokens, token_cnt - 1);
+  else if (strcmp(CMD, tokens[0]) == 0) _res = CMD_FUNC((const char**)tokens, token_cnt - 1);
   COMMANDS
 #undef X
   else {
