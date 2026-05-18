@@ -120,19 +120,36 @@ int parse_long(const char* str, long* val) {
 }
 
 int parse_hex_byte(const char* str, uint8_t* byte) {
-  char* endptr;
+	char* endptr;
 
-  if (strncasecmp(str, "0x", 2) == 0) str += 2;
+	if (str == NULL || byte == NULL)
+		RES_RETURN(r_EARGS, -1);
 
-  if (strlen(str) > 2) RES_RETURN(r_EPARSE, -1);
+	if (strncasecmp(str, "0x", 2) == 0)
+		str += 2;
 
-  errno = 0;
-  *byte = strtol(str, &endptr, 16);
+	if (*str == '\0')
+		RES_RETURN(r_EPARSE, -1);
 
-  if (errno != 0) RES_RETURN(r_EPARSE, -1);
-  if (str + strlen(str) - 1 != endptr) RES_RETURN(r_EPARSE, -1);
+	if (strlen(str) > 2)
+		RES_RETURN(r_EPARSE, -1);
 
-  RES_RETURN(r_ENONE, 0);
+	errno = 0;
+
+	long value = strtol(str, &endptr, 16);
+
+	if (errno != 0)
+		RES_RETURN(r_EPARSE, -1);
+
+	if (*endptr != '\0')
+		RES_RETURN(r_EPARSE, -1);
+
+	if (value < 0 || value > 0xFF)
+		RES_RETURN(r_EPARSE, -1);
+
+	*byte = (uint8_t)value;
+
+	RES_RETURN(r_ENONE, 0);
 }
 
 void print_hex(size_t len, const uint8_t* buf) {
@@ -147,6 +164,6 @@ void panic(char* msg) {
   printf("WARNING: PROGRAM PANIC - EXITING IMMEDIATELY\n");
   printf("%s", msg);
 
-  exit(-1);
+  quit(-1);
 }
 

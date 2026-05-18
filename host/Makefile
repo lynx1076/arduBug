@@ -23,7 +23,6 @@ SRCS = \
 	src/commands.c \
 	src/io.c \
 	src/cli.c \
-	src/debugger.c \
 
 COMMON_SRCS = \
 	../common/ucobs.c

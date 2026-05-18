@@ -11,6 +11,8 @@
 
 #define CLI_PROMPT_NORMAL	    ">>>"
 
+CliState cliState = CliState_Normal;
+
 static char new_input[MAX_USER_INPUT + 1];
 static int new_input_len = 0;
 

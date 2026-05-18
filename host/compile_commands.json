@@ -14,10 +14,10 @@
       "-c",
       "src/main.c",
       "-o",
-      ".build/linux/src/main.o"
+      ".build/src/main.o"
     ],
     "directory": "/home/lynx/arduBug/host",
-    "output": ".build/linux/src/main.o"
+    "output": ".build/src/main.o"
   },
   {
     "file": "src/vector.c",
@@ -34,10 +34,10 @@
       "-c",
       "src/vector.c",
       "-o",
-      ".build/linux/src/vector.o"
+      ".build/src/vector.o"
     ],
     "directory": "/home/lynx/arduBug/host",
-    "output": ".build/linux/src/vector.o"
+    "output": ".build/src/vector.o"
   },
   {
     "file": "src/serial.c",
@@ -54,10 +54,10 @@
       "-c",
       "src/serial.c",
       "-o",
-      ".build/linux/src/serial.o"
+      ".build/src/serial.o"
     ],
     "directory": "/home/lynx/arduBug/host",
-    "output": ".build/linux/src/serial.o"
+    "output": ".build/src/serial.o"
   },
   {
     "file": "src/utils.c",
@@ -74,10 +74,10 @@
       "-c",
       "src/utils.c",
       "-o",
-      ".build/linux/src/utils.o"
+      ".build/src/utils.o"
     ],
     "directory": "/home/lynx/arduBug/host",
-    "output": ".build/linux/src/utils.o"
+    "output": ".build/src/utils.o"
   },
   {
     "file": "src/result.c",
@@ -94,13 +94,13 @@
       "-c",
       "src/result.c",
       "-o",
-      ".build/linux/src/result.o"
+      ".build/src/result.o"
     ],
     "directory": "/home/lynx/arduBug/host",
-    "output": ".build/linux/src/result.o"
+    "output": ".build/src/result.o"
   },
   {
-    "file": "../common/ucobs.c",
+    "file": "src/commands.c",
     "arguments": [
       "/usr/bin/gcc",
       "-Wall",
@@ -112,11 +112,11 @@
       "-I../common",
       "-O3",
       "-c",
-      "../common/ucobs.c",
+      "src/commands.c",
       "-o",
-      ".build/linux/../common/ucobs.o"
+      ".build/src/commands.o"
     ],
     "directory": "/home/lynx/arduBug/host",
-    "output": ".build/linux/../common/ucobs.o"
+    "output": ".build/src/commands.o"
   }
 ]

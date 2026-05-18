@@ -1,10 +1,13 @@
 #include "commands.h"
+#include "cli.h"
 #include "result.h"
 #include "serial_protocol.h"
 #include "ucobs.h"
 #include "utils.h"
 #include "vector.h"
 #include "serial.h"
+#include "io.h"
+#include "pins.h"
 #include <stddef.h>
 #include <ncurses.h>
 #include <stdint.h>
@@ -13,14 +16,18 @@
 #include <stdnoreturn.h>
 #include <string.h>
 
-static Vec device_list = VEC_EMPTY;
-static size_t cycle = 0;
-static bool can_debug = false;
 
-int cmd_quit(size_t token_cnt, const char** tokens) {
+#define FAIL_TO_NORMAL \
+  do { printw("Error: switching back to normal mode\n"); cmd_init_normal(0, NULL); return -1; } while (0)
+
+static Vec device_list = VEC_EMPTY;
+static ssize_t cycle = 0;
+static uint8_t ext_data = 0;
+
+int cmd_quit(size_t arg_cnt, const char** tokens) {
   (void)tokens;
 
-  if (token_cnt != 0) {
+  if (arg_cnt != 0) {
     RES_RETURN(r_EARGS, -1);
   }
 
@@ -29,10 +36,10 @@ int cmd_quit(size_t token_cnt, const char** tokens) {
   RES_RETURN(r_ESYS, -1);
 }
 
-int cmd_scan_devices(size_t token_cnt, const char** tokens) {
+int cmd_scan_devices(size_t arg_cnt, const char** tokens) {
   (void)tokens;
 
-  if (token_cnt != 0) {
+  if (arg_cnt != 0) {
     RES_RETURN(r_EARGS, -1);
   }
   
@@ -50,10 +57,10 @@ int cmd_scan_devices(size_t token_cnt, const char** tokens) {
   RES_RETURN(r_ENONE, 0);
 }
 
-int cmd_connect(size_t token_cnt, const char** tokens) {
+int cmd_connect(size_t arg_cnt, const char** tokens) {
   (void)tokens;
   
-  if (token_cnt != 1) {
+  if (arg_cnt != 1) {
     RES_RETURN(r_EARGS, -1);
   }
   
@@ -77,10 +84,10 @@ int cmd_connect(size_t token_cnt, const char** tokens) {
   RES_RETURN(r_ENONE, 0);
 }
 
-int cmd_disconnect(size_t token_cnt, const char** tokens) {
+int cmd_disconnect(size_t arg_cnt, const char** tokens) {
   (void)tokens;
 
-  if (token_cnt != 0) {
+  if (arg_cnt != 0) {
     RES_RETURN(r_EARGS, -1);
   }
 
@@ -94,10 +101,10 @@ int cmd_disconnect(size_t token_cnt, const char** tokens) {
   RES_RETURN(r_ENONE, 0);
 }
 
-int cmd_status(size_t token_cnt, const char** tokens) {
+int cmd_status(size_t arg_cnt, const char** tokens) {
   (void)tokens;
 
-  if (token_cnt != 0) {
+  if (arg_cnt != 0) {
     RES_RETURN(r_EARGS, -1);
   }
 
@@ -110,10 +117,10 @@ int cmd_status(size_t token_cnt, const char** tokens) {
   RES_RETURN(r_ENONE, 0);
 }
 
-int cmd_ping(size_t token_cnt, const char** tokens) {
+int cmd_ping(size_t arg_cnt, const char** tokens) {
   (void)tokens;
 
-  if (token_cnt != 0) {
+  if (arg_cnt != 0) {
     RES_RETURN(r_EARGS, -1);
   }
 
@@ -141,10 +148,10 @@ int cmd_ping(size_t token_cnt, const char** tokens) {
   RES_RETURN(r_ENONE, 0);
 }
 
-int cmd_version(size_t token_cnt, const char** tokens) {
+int cmd_version(size_t arg_cnt, const char** tokens) {
   (void)tokens;
 
-  if (token_cnt != 0) {
+  if (arg_cnt != 0) {
     RES_RETURN(r_EARGS, -1);
   }
 
@@ -172,8 +179,8 @@ int cmd_version(size_t token_cnt, const char** tokens) {
   RES_RETURN(r_ENONE, 0);
 }
 
-int cmd_show_debug_logs(size_t token_cnt, const char** tokens) {
-  if (token_cnt != 1) {
+int cmd_show_debug_logs(size_t arg_cnt, const char** tokens) {
+  if (arg_cnt != 1) {
     RES_RETURN(r_EARGS, -1);
   }
 
@@ -192,43 +199,129 @@ int cmd_show_debug_logs(size_t token_cnt, const char** tokens) {
   RES_RETURN(r_ENONE, 0);
 }
 
-int cmd_debugger(size_t token_cnt, const char** tokens) {
+int cmd_init_normal(size_t arg_cnt, const char **tokens) {
   (void)tokens;
 
-  if (token_cnt != 0) {
+  if (arg_cnt != 0) {
     RES_RETURN(r_EARGS, -1);
   }
 
-  cycle = 0;
-
+  cliState = CliState_Normal;
   if (io_init()) return -1;
-  
-  for (int i = 0; i < 32; i++) {
-    if (io_write_iodir(i, INPUT)) return -1;
-  }
-
-  if (io_write_pin(PINS_CTRL_PIN_EXT_CLK_EN, HIGH)) return -1;
-
-  if (io_write_pin(PINS_CTRL_PIN_EXT_CLK, clock_state)) return -1;
-
-  if (reset_seq()) return -1;
-
-  can_debug = true;
-
-  debug_log(log_INFO, "Debugger initalized");
-  printw("Debugger initalized\n");
-
 
   RES_RETURN(r_ENONE, 0);
 }
 
-int cmd_step(size_t token_cnt, const char** tokens) {
-  can_debug = false;
+int cmd_init_debug(size_t arg_cnt, const char** tokens) {
+  (void)tokens;
 
-  if (token_cnt != 0) {
+  if (arg_cnt != 0) {
     RES_RETURN(r_EARGS, -1);
   }
 
+  cycle = 0;
+  cliState = CliState_Debug;
+
+  if (io_init()) FAIL_TO_NORMAL;
+  
+  if (io_write_pin(PINS_CTRL_PIN_EXT_CLK_EN, HIGH)) FAIL_TO_NORMAL;
+
+  if (io_write_pin(PINS_CTRL_PIN_EXT_CLK, LOW)) FAIL_TO_NORMAL;
+
+  debug_log(log_INFO, "Debugger initalized");
+  printw("Debugger initalized\n");
+
+  RES_RETURN(r_ENONE, 0);
+}
+
+int cmd_init_emulation(size_t arg_cnt, const char** tokens) {
+  (void)tokens;
+
+  if (arg_cnt != 0) {
+    RES_RETURN(r_EARGS, -1);
+  }
+
+  cycle = 0;
+  cliState = CliState_EmulateMemory;
+
+  if (io_init()) FAIL_TO_NORMAL;
+  
+  if (io_write_pin(PINS_CTRL_PIN_EXT_CLK_EN, HIGH)) FAIL_TO_NORMAL;
+
+  if (io_write_pin(PINS_CTRL_PIN_EXT_CLK, LOW)) FAIL_TO_NORMAL;
+
+  debug_log(log_INFO, "Emulator initalized");
+  printw("Emulator initalized\n");
+
+  RES_RETURN(r_ENONE, 0);
+}
+
+int cmd_step(size_t arg_cnt, const char** tokens) {
+  (void)tokens;
+
+  if (cliState != CliState_Debug && cliState != CliState_EmulateMemory) {
+    printw("Not in an expected mode\n");
+    RES_RETURN(r_ENOT_INIT, -1);
+  }
+
+  if (arg_cnt != 0) {
+    RES_RETURN(r_EARGS, -1);
+  }
+
+  if (io_set_clock(HIGH)) FAIL_TO_NORMAL;
+
+  uint8_t databus;
+  uint16_t addrbus;
+  bool cpu_reading;
+
+  if (io_cpu_reading(&cpu_reading)) FAIL_TO_NORMAL;
+  if (io_read_addrbus(&addrbus)) FAIL_TO_NORMAL;
+
+  if (cliState == CliState_EmulateMemory && cpu_reading) {
+    if (io_write_databus(ext_data)) FAIL_TO_NORMAL;
+    databus = ext_data;
+  } else {
+    if (io_read_databus(&databus)) FAIL_TO_NORMAL;
+  }
+
+  printw("\n");
+  printw("Cycle: %zi\n", cycle);
+
+  printw("CPU %s 0x%02x @ 0x%04x\n", cpu_reading ? "reading" : "writing", databus, addrbus);
+
+  if (io_set_clock(LOW)) FAIL_TO_NORMAL;
+
   cycle++;
+
+  return 0;
+}
+
+int cmd_reset(size_t arg_cnt, const char **tokens) {
+  (void)tokens;
+
+  if (cliState != CliState_Debug && cliState != CliState_EmulateMemory) {
+    printw("Not in debug mode\n");
+    RES_RETURN(r_ENOT_INIT, -1);
+  }
+
+  if (arg_cnt != 0) {
+    RES_RETURN(r_EARGS, -1);
+  }
+
+  printw("Resetting...\n");
+
+  if (io_reset_seq()) FAIL_TO_NORMAL;
+
+  cycle = -8;
+
+  RES_RETURN(r_ENONE, 0);
+}
+
+int cmd_set_data(size_t arg_cnt, const char **tokens) {
+  if (arg_cnt != 1) RES_RETURN(r_EARGS, -1);
+
+  if (parse_hex_byte(tokens[1], &ext_data)) return -1;
+
+  RES_RETURN(r_ENONE, 0);
 }
 

@@ -3,7 +3,6 @@
 #include "utils.h"
 #include <stdbool.h>
 #include <stdint.h>
-#include <stdlib.h>
 #include <unistd.h>
 #include <ncurses.h>
 
@@ -20,7 +19,9 @@ int main(int argc, char* argv[]) {
 
   while (true) {
     if (cli_update()) {
-      if (_res == r_EMEM || _res == r_ESYS || _res == r_EDOUBLE_INIT || _res == r_ENOT_INIT) break;
+      if (_res == r_EMEM || _res == r_ESYS) {
+        debug_log(log_CRIT, "Cannot recover from %s - Exiting", _res);
+      }
     }
     sleep_ms(10);
   }

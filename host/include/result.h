@@ -19,6 +19,8 @@
   X(r_EDOUBLE_INIT) \
   X(r_ECMD) \
   X(r_EPARSE) \
+  X(r_EACCESS) \
+
 
 typedef enum {
 #define X(RESULT) \

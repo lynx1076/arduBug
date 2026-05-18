@@ -67,9 +67,10 @@ int ser_open(char* path) {
     RES_RETURN(r_ESYS, -1);
   }
 
-  memset(&tty, 0, sizeof tty);
+  cfmakeraw(&tty);
 
   tty.c_cflag = CLOCAL | CREAD;   // ignore modem ctrl lines, enable read
+  tty.c_cflag &= ~CSIZE;          // ensure size bits empty
   tty.c_cflag |= CS8;             // 8 data bits
   tty.c_cflag &= ~PARENB;         // no parity
   tty.c_cflag &= ~CSTOPB;         // 1 stop bit
@@ -82,8 +83,8 @@ int ser_open(char* path) {
 
   tty.c_lflag = 0; // raw input (no echo, no canonical mode)
 
-  tty.c_cc[VMIN]  = 0; // non-blocking read
-  tty.c_cc[VTIME] = READ_TIMEOUT_100MS; // 100 ms timeout
+  tty.c_cc[VMIN]  = 0;
+  tty.c_cc[VTIME] = READ_TIMEOUT_100MS;
 
   if (cfsetispeed(&tty, SER_BAUDRATE) != 0 || cfsetospeed(&tty, SER_BAUDRATE) != 0) {
     close(fd);
@@ -96,6 +97,7 @@ int ser_open(char* path) {
   }
 
   if (tcflush(fd, TCIOFLUSH)) {
+    close(fd);
     RES_RETURN(r_ESYS, -1);
   }
 
