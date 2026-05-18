@@ -8,7 +8,7 @@ DEBUG_FLAGS =
 OPT_FLAG = -O3
 
 ifeq ($(DEBUG), 1)
-	DEBUG_FLAGS = -g
+	DEBUG_FLAGS = -g3 -fno-omit-frame-pointer
 	OPT_FLAG = -O0
 endif
 
@@ -20,9 +20,9 @@ SRCS = \
 	src/serial.c \
 	src/utils.c \
 	src/result.c \
-	src/cli_handler.c \
 	src/commands.c \
 	src/io.c \
+	src/cli.c \
 	src/debugger.c \
 
 COMMON_SRCS = \
@@ -41,6 +41,9 @@ CFLAGS = \
 	$(addprefix -I,$(INCLUDES)) \
 	$(OPT_FLAG) \
 	$(DEBUG_FLAGS)
+
+LDFLAGS = \
+	-lncurses \
 
 OBJS = $(SRCS:%.c=$(BUILD_DIR)/%.o)
 OBJS += $(patsubst ../common/%.c,$(BUILD_DIR)/common/%.o,$(COMMON_SRCS))

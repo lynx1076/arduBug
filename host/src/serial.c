@@ -22,22 +22,12 @@ static bool recv_sync = false;
 static uint8_t recv_buf[UCOBS_MAX_PACKET_LEN];
 static size_t recv_len = 0;
 
-result ser_scan_ports(Vec* return_vec) {
-  result _res;
-
-  _res = vec_init(return_vec, SERIAL_PORT_PATH_MAX);
-  if (_res != r_ENONE) {
-    return _res;
-  }
+int ser_scan_ports(Vec* return_vec) {
+  if (vec_init(return_vec, SERIAL_PORT_PATH_MAX)) return -1;
 
   DIR* dev_dir = opendir("/dev");
   if (!dev_dir) {
-    return r_ESYS;
-  }
-
-  if (_res != r_ENONE) {
-    closedir(dev_dir);
-    return _res;
+    RES_RETURN(r_ESYS, -1);
   }
 
   struct dirent* entry;
@@ -47,19 +37,19 @@ result ser_scan_ports(Vec* return_vec) {
       char full_path[PATH_MAX];
       snprintf(full_path, sizeof(full_path), "/dev/%s", entry->d_name);
       debug_log(log_INFO, "Discovered open port: %s", full_path);
-      _res = vec_push(return_vec, full_path);
-      if (_res != r_ENONE) {
-        vec_clear(return_vec);
-        return _res;
+      if (vec_push(return_vec, full_path)) {
+        closedir(dev_dir);
+        return -1;
       }
     }
   }
 
   closedir(dev_dir);
-  return r_ENONE;
+
+  RES_RETURN(r_ENONE, 0);
 }
 
-result ser_open(char* path) {
+int ser_open(char* path) {
   ser_close();
 
   if (path == NULL) {
@@ -68,13 +58,13 @@ result ser_open(char* path) {
 
   int fd = open(path, O_RDWR | O_NOCTTY);
   if (fd < 0) {
-    return r_ESYS;
+    RES_RETURN(r_ESYS, -1);
   }
 
   struct termios tty;
   if (tcgetattr(fd, &tty) != 0) {
     close(fd);
-    return r_ESYS;
+    RES_RETURN(r_ESYS, -1);
   }
 
   memset(&tty, 0, sizeof tty);
@@ -97,22 +87,22 @@ result ser_open(char* path) {
 
   if (cfsetispeed(&tty, SER_BAUDRATE) != 0 || cfsetospeed(&tty, SER_BAUDRATE) != 0) {
     close(fd);
-    return r_ESYS;
+    RES_RETURN(r_ESYS, -1);
   }
 
   if (tcsetattr(fd, TCSANOW, &tty) != 0) {
     close(fd);
-    return r_ESYS;
+    RES_RETURN(r_ESYS, -1);
   }
 
   if (tcflush(fd, TCIOFLUSH)) {
-    return r_ESYS;
+    RES_RETURN(r_ESYS, -1);
   }
 
   current_port_fd = fd;
   snprintf(current_port, SERIAL_PORT_PATH_MAX, "%s", path);
 
-  return r_ENONE;
+  RES_RETURN(r_ENONE, 0);
 }
 
 void ser_close(void) {
@@ -134,57 +124,55 @@ bool ser_is_open(void) {
   return *current_port != '\0';
 }
 
-result ser_write(size_t length, const uint8_t* data) {
+int ser_write(size_t length, const uint8_t* data) {
   if (!ser_is_open()) {
-    return r_EDEVICE;
+    RES_RETURN(r_EDEVICE, -1);
   }
 
   ssize_t result = write(current_port_fd, data, length);
 
   if (result <= 0 || (size_t)result != length) {
     ser_close();
-    return r_ESYS;
+    RES_RETURN(r_ESYS, -1);
   }
 
-  return r_ENONE;
+  RES_RETURN(r_ENONE, 0);
 }
 
-result ser_read(size_t* length, uint8_t* data) {
+int ser_read(size_t* length, uint8_t* data) {
   if (current_port_fd < 0) {
-    return r_ESYS;
+    RES_RETURN(r_ESYS, -1);
   }
 
   if (data == NULL) {
-    return r_EARGS;
+    RES_RETURN(r_EARGS, -1);
   }
 
   if (length == NULL) {
-    return r_EARGS;
+    RES_RETURN(r_EARGS, -1);
   }
 
   ssize_t read__res = read(current_port_fd, data, *length);
 
   if (read__res < 0) {
     ser_close();
-    return r_ESYS;
+    RES_RETURN(r_ESYS, -1);
   } else if (read__res >= 1) {
     *length = read__res;
-    return r_DATA_READY;
+    RES_RETURN(r_DATA_READY, 0);
   }
 
-  return r_ENONE;
+  RES_RETURN(r_ENONE, 0);
 }
 
-result ser_enc_read(size_t* length, uint8_t* data) {
+int ser_enc_read(size_t* length, uint8_t* data) {
 	size_t free_space = UCOBS_MAX_PACKET_LEN - recv_len;
 
 	if (free_space == 0) return r_EENCODING;
 
 	size_t bytes_read = free_space;
-	result _res = ser_read(&bytes_read, recv_buf + recv_len);
-
-	if (_res != r_ENONE && _res != r_DATA_READY)
-		return _res;
+	if (ser_read(&bytes_read, recv_buf + recv_len)) return -1;
+  if (_res != r_DATA_READY) RES_RETURN(r_ENO_DATA, -1);
 
 	recv_len += bytes_read;
 
@@ -212,20 +200,19 @@ result ser_enc_read(size_t* length, uint8_t* data) {
 
 		if (decoded < 0) {
 			recv_sync = false;
-			return r_EENCODING;
+      RES_RETURN(r_EENCODING, -1);
 		}
 
 		*length = decoded;
-		return r_DATA_READY;
+    RES_RETURN(r_DATA_READY, 0);
 	}
 
-	return r_ENONE;
+  RES_RETURN(r_ENONE, 0);
 }
 
-result ser_enc_write_va(const size_t length, ...) {
+int ser_enc_write_va(const size_t length, ...) {
   va_list va_args;
   uint8_t buf[UCOBS_MAX_PACKET_LEN];
-  result _res;
 
   va_start(va_args, length);
 
@@ -236,24 +223,22 @@ result ser_enc_write_va(const size_t length, ...) {
   va_end(va_args);
 
   int encoded_len = ucobs_encode(length, buf + 1, buf + 1);
-  if (encoded_len < 0) return r_EENCODING;
+  if (encoded_len < 0) RES_RETURN(r_EENCODING, -1);
 
   buf[0] = 0x00;
   buf[encoded_len + 1] = 0x00;
 
-  _res = ser_write(encoded_len + UCOBS_LEN_FRAME, buf);
-  if (_res != r_ENONE) return _res;
+  if (ser_write(encoded_len + UCOBS_LEN_FRAME, buf)) return -1;
 
-  return r_ENONE;
+  RES_RETURN(r_ENONE, 0);
 }
 
-result ser_enc_read_va(const size_t expected_length, ...) {
-  result _res;
-
+int ser_enc_read_va(const size_t expected_length, ...) {
   size_t read_length;
   uint8_t read_data[UCOBS_MAX_DATA_LEN];
-  _res = ser_enc_read(&read_length, read_data);
-  if (_res != r_DATA_READY) return _res;
+
+  if (ser_enc_read(&read_length, read_data)) return -1;
+  if (_res != r_DATA_READY) RES_RETURN(r_ENO_DATA, -1);
   if (read_length != expected_length) return r_EDEVICE;
 
   va_list va_args;
@@ -266,6 +251,6 @@ result ser_enc_read_va(const size_t expected_length, ...) {
 
   va_end(va_args);
 
-  return r_ENONE;
+  RES_RETURN(r_ENONE, 0);
 }
 

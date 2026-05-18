@@ -10,24 +10,22 @@
 
 typedef struct {
   int8_t is_high;
-  int8_t is_input;
+  int8_t io_mode;
 } PinState;
 
 static PinState pin_states[PIN_COUNT];
 
-result io_init(void) {
+int io_init(void) {
   for (int i = 0; i < PIN_COUNT; i++) {
     pin_states[i] = (PinState){-1, -1};
   }
 
-  return r_ENONE;
+  RES_RETURN(r_ENONE, 0);
 }
 
-result io_get_pin_from_token(const char* token, uint8_t* pin) {
-  result _res;
-
+int io_get_pin_from_token(const char* token, uint8_t* pin) {
 #define PIN_CASE(NAME, ALT, PIN) \
-  if (strcmp(NAME, token) == 0 || strcmp(ALT, token) == 0) do { *pin= PIN; return r_ENONE; } while (0)
+  if (strcmp(NAME, token) == 0 || strcmp(ALT, token) == 0) RES_RETURN(r_ENONE, PIN)
   
   PIN_CASE("RWB", "rw", PINS_CTRL_PIN_RWB);
   PIN_CASE("NMIB", "nmi", PINS_CTRL_PIN_NMIB);
@@ -68,21 +66,20 @@ result io_get_pin_from_token(const char* token, uint8_t* pin) {
 #undef PIN_CASE
 
   long pin_long;
-  _res = parse_long(token, &pin_long);
-  if (_res != r_ENONE) return _res;
+  if (parse_long(token, &pin_long)) return -1;
 
   if (pin_long < 0 || pin_long > 32) {
-    return r_EBOUNDS;
+    RES_RETURN(r_EBOUNDS, -1);
   }
 
   *pin = (uint8_t)pin_long;
 
-  return r_ENONE;
+  RES_RETURN(r_ENONE, 0);
 }
 
-result io_get_state_from_token(const char* token, bool* state) {
+int io_get_state_from_token(const char* token, bool* state) {
 #define STATE_CASE(NAME, STATE) \
-  if (strcmp(NAME, token) == 0) do { *state = STATE; return r_ENONE; } while (0)
+  if (strcmp(NAME, token) == 0) do { *state = STATE; RES_RETURN(r_ENONE, 0); } while (0)
   
   STATE_CASE("1", HIGH);
   STATE_CASE("high", HIGH);
@@ -96,89 +93,166 @@ result io_get_state_from_token(const char* token, bool* state) {
 
 #undef STATE_CASE
 
-  return r_EPARSE;
+  RES_RETURN(r_EPARSE, -1);
 }
 
-result io_write_iodir(uint8_t pin, bool set_input) {
+bool io_pin_writable(int pin) {
+  switch (pin) {
+    case PINS_CTRL_PIN_RWB: return false;
+    case PINS_CTRL_PIN_NMIB: return false;
+    case PINS_CTRL_PIN_IRQB: return false;
+    case PINS_CTRL_PIN_VPB: return false;
+    case PINS_CTRL_PIN_EXT_CLK_EN: return true;
+    case PINS_CTRL_PIN_EXT_CLK: return true;
+    case PINS_CTRL_PIN_EXT_RESETB: return true;
+    case PINS_CTRL_PIN_EXT_RWB: return false;
+
+    default: true;
+  }
+}
+
+int io_write_iodir(uint8_t pin, bool set_input) {
   result _res;
 
-  if (pin_states[pin].is_input != -1) {
-    if (BOOL_CMP(pin_states[pin].is_input, set_input)) {
+  if (pin_states[pin].io_mode != -1) {
+    if (BOOL_CMP(pin_states[pin].io_mode, set_input)) {
       debug_log(log_INFO, "Skipped writing %s to %u as pin is already configured", set_input ? "INPUT" : "OUTPUT", pin);
-      return r_ENONE;
+      RES_RETURN(r_ENONE, 0);
     }
   }
 
-  _res = ser_enc_write_va(3, SP_CMD_WRITE_IODIR, pin, set_input ? INPUT : OUTPUT);
-  if (_res != r_ENONE) return _res;
+  if (ser_enc_write_va(3, SP_CMD_WRITE_IODIR, pin, set_input ? INPUT : OUTPUT)) return -1;
 
-  bool is_input_read;
-  _res = ser_enc_read_va(1, &is_input_read);
-  if (_res != r_ENONE) return _res;
+  bool io_mode_read;
+  if (ser_enc_read_va(1, &io_mode_read)) return -1;
 
-  _res = BOOL_CMP(set_input, is_input_read) ? r_ENONE : r_EDEVICE;
 
-  if (_res == r_ENONE) {
+  if (BOOL_CMP(set_input, io_mode_read)) {
     debug_log(log_INFO, "Successfully wrote %s to %u", set_input ? "INPUT" : "OUTPUT", pin);
   } else {
     debug_log(log_INFO, "Failed to write %s to pin %u", set_input ? "INPUT" : "OUTPUT", pin);
-    return _res;
+    RES_RETURN(r_EDEVICE, -1);
   }
 
-  pin_states[pin].is_input = set_input ? INPUT : OUTPUT;
+  pin_states[pin].io_mode = set_input ? INPUT : OUTPUT;
   pin_states[pin].is_high = -1;
 
-  return r_ENONE;
+  RES_RETURN(r_ENONE, 0);
 }
 
-result io_write_pin(uint8_t pin, bool set_high) {
-  result _res;
-
-  _res = io_write_iodir(pin, OUTPUT);
-  if (_res != r_ENONE) return _res;
+int io_write_pin(uint8_t pin, bool set_high) {
+  if (io_write_iodir(pin, OUTPUT)) return -1;
 
   if (pin_states[pin].is_high != -1) {
     if (BOOL_CMP(pin_states[pin].is_high, set_high)) {
       debug_log(log_INFO, "Skipped writing %s to pin %u as pin is already configured", set_high ? "HIGH" : "LOW", pin);
-      return r_ENONE;
+      RES_RETURN(r_ENONE, 0);
     }
   }
 
-  _res = ser_enc_write_va(3, SP_CMD_WRITE, pin, set_high);
-  if (_res != r_ENONE) return _res;
+  if (ser_enc_write_va(3, SP_CMD_WRITE, pin, set_high)) return -1;
 
   bool is_high_read;
-  _res = ser_enc_read_va(1, &is_high_read);
-  if (_res != r_ENONE) return _res;
+  if (ser_enc_read_va(1, &is_high_read)) return -1;
 
-  _res = BOOL_CMP(is_high_read, set_high) ? r_ENONE : r_EDEVICE;
-
-  if (_res == r_ENONE) {
+  if (BOOL_CMP(is_high_read, set_high)) {
     debug_log(log_INFO, "Successfully wrote %s to %u", set_high ? "HIGH" : "LOW", pin);
   } else {
     debug_log(log_INFO, "Failed to write %s to pin %u", set_high ? "HIGH" : "LOW", pin);
-    return _res;
+    RES_RETURN(r_EDEVICE, -1);
   }
 
   pin_states[pin].is_high = set_high;
 
-  return r_ENONE;
+  RES_RETURN(r_ENONE, 0);
 }
 
-result io_read_pin(uint8_t pin, bool* is_high) {
-  result _res;
+int io_read_pin(uint8_t pin, bool* is_high) {
+  if (io_write_iodir(pin, INPUT)) return -1;
 
-  _res = io_write_iodir(pin, INPUT);
-  if (_res != r_ENONE) return _res;
+  if (ser_enc_write_va(2, SP_CMD_READ, pin)) return -1;
 
-  _res = ser_enc_write_va(2, SP_CMD_READ, pin);
-  if (_res != r_ENONE) return _res;
-
-  _res = ser_enc_read_va(1, is_high);
-  if (_res != r_ENONE) return _res;
+  if (ser_enc_read_va(1, is_high)) return -1;
 
   debug_log(log_INFO, "Read from pin %u -> %s", pin, *is_high ? "HIGH" : "LOW");
 
-  return r_ENONE;
+  RES_RETURN(r_ENONE, 0);
+}
+
+int io_set_clock(bool phase) {
+  if (io_write_pin(PINS_CTRL_PIN_EXT_CLK, phase ? HIGH : LOW)) return -1;
+
+  RES_RETURN(r_ENONE, 0);
+}
+
+int io_pulse_clock(size_t n) {
+  debug_log(log_INFO, "Starting to pulse clock %zu time%s", n, n == 1 ? "" : "s");
+
+  bool clock_state;
+  if (io_read_pin(PINS_CTRL_PIN_EXT_CLK, &clock_state)) return -1;
+
+  if (BOOL_CMP(clock_state, HIGH) && n != 0) {
+    n--;
+    if (io_set_clock(LOW)) return -1;
+  }
+
+  for (size_t i = 0; i < n; i++) {
+    if (io_set_clock(HIGH)) return -1;
+    if (io_set_clock(LOW)) return -1;
+  }
+
+  debug_log(log_INFO, "Finished clock pulsing");
+
+  RES_RETURN(r_ENONE, 0);
+}
+
+int io_reset_seq(void) {
+  if (io_write_pin(PINS_CTRL_PIN_EXT_RESETB, LOW)) return -1;
+
+  if (io_pulse_clock(2)) return -1;
+
+  if (io_write_pin(PINS_CTRL_PIN_EXT_RESETB, HIGH)) return -1;
+
+  if (io_pulse_clock(7)) return -1;
+
+  RES_RETURN(r_ENONE, 0);
+}
+
+int io_read_databus(uint8_t* databus) {
+  *databus = 0;
+
+  for (int i = 0; i < 8; i++) {
+    bool state;
+    
+    if (io_read_pin(PINS_DATA_PIN_0 + i, &state)) return -1;
+
+    *databus |= (state ? 1 : 0) << i;
+  }
+
+  RES_RETURN(r_ENONE, 0);
+}
+
+int io_read_addrbus(uint16_t* addrbus) {
+  *addrbus = 0;
+
+  for (int i = 0; i < 16; i++) {
+    bool state;
+    
+    if (io_read_pin(PINS_ADDR_PIN_0 + i, &state)) return -1;
+
+    *addrbus |= (state ? 1 : 0) << i;
+  }
+
+  RES_RETURN(r_ENONE, 0);
+}
+
+int io_write_databus(uint8_t databus) {
+  for (int i = 0; i < 8; i++) {
+    bool state = databus & (1 << i);
+    
+    if (io_write_pin(PINS_DATA_PIN_0 + i, state)) return -1;
+  }
+
+  RES_RETURN(r_ENONE, 0);
 }
 

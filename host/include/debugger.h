@@ -1,10 +1,7 @@
 #ifndef DEBUGGER_H
 #define DEBUGGER_H
 
-#include "result.h"
-
-
-result dbg_start(const char** tokens, unsigned int arg_cnt);
+int dbg_debugger(void);
 
 /**
  * The debugger is very confusing. It exists, but it's very confusing.

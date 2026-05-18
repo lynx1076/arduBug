@@ -7,6 +7,8 @@
 #define INPUT                       HIGH
 #define OUTPUT                      LOW
 
+#define PIN_COUNT                   32
+
 #define MCP_IO0_PORTA               0x0A
 #define MCP_IO0_PORTB               0x0B
 

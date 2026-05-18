@@ -1,7 +1,6 @@
 #ifndef UTILS_H
 #define UTILS_H
 
-#include "result.h"
 #include "stdlib.h"
 #include <stddef.h>
 #include <stdint.h>
@@ -17,15 +16,17 @@ typedef enum {
   log_WARN,
 } log_level;
 
-extern bool dbg_log_to_stdout;
+extern bool dbg_log_to_user;
 
 void debug_log(log_level ll, char* format, ...);
+void quit(int exit_code);
 void sleep_us(size_t microseconds);
 void sleep_ms(size_t milliseconds);
 uint64_t micros(void);
 uint64_t millis(void);
-result parse_long(const char* str, long* val);
-result parse_hex_byte(const char* str, uint8_t* byte);
+int parse_long(const char* str, long* val);
+int parse_hex_byte(const char* str, uint8_t* byte);
 void print_hex(size_t len, const uint8_t* buf);
+void panic(char* msg);
 
 #endif

@@ -1,21 +1,35 @@
 #ifndef RESULT_H
 #define RESULT_H
 
+#include <threads.h>
+#define RES_RETURN(RESULT, VALUE)         do { _res = RESULT; return VALUE; } while (0)
+
+#define RESULTS \
+  X(r_ENONE) \
+  X(r_DATA_READY) \
+  X(r_ENO_DATA) \
+  X(r_EENCODING) \
+  X(r_EMEM) \
+  X(r_ESYS) \
+  X(r_ETIMEOUT) \
+  X(r_EBOUNDS) \
+  X(r_EARGS) \
+  X(r_EDEVICE) \
+  X(r_ENOT_INIT) \
+  X(r_EDOUBLE_INIT) \
+  X(r_ECMD) \
+  X(r_EPARSE) \
+
 typedef enum {
-  r_ENONE = 0,
-  r_DATA_READY,
-  r_EENCODING,
-  r_EMEM,
-  r_ESYS,
-  r_ETIMEOUT,
-  r_EBOUNDS,
-  r_EARGS,
-  r_EDEVICE,
-  r_ENOT_INIT,
-  r_EDOUBLE_INIT,
-  r_ECMD,
-  r_EPARSE,
+#define X(RESULT) \
+  RESULT,
+
+  RESULTS
+
+#undef X
 } result;
+
+extern thread_local result _res;
 
 char* res_get_string(result res);
 

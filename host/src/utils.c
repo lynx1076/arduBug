@@ -11,9 +11,9 @@
 #include <string.h>
 #include <strings.h>
 #include <time.h>
-#include <pthread.h>
+#include <ncurses.h>
 
-bool dbg_log_to_stdout = false;
+bool dbg_log_to_user = false;
 
 void (*LOG_FUNCS[])(const char*) = {
   NULL
@@ -49,7 +49,7 @@ void debug_log(log_level ll, char* format, ...) {
   char* full_str;
   asprintf(&full_str, "[%s] %s", prefix, msg);
 
-  if (dbg_log_to_stdout) printf("%s\n", full_str);
+  if (dbg_log_to_user) printw("%s\n", full_str);
   for (int i = 0; LOG_FUNCS[i] != 0; i++) {
     LOG_FUNCS[i](full_str);
   }
@@ -60,6 +60,19 @@ ERROR:
   printf("\n");
   printf("LOGGING FAILED!\n");
   printf("Certain errors and events might have not been properly logged!\n");
+}
+
+void quit(int exit_code) {
+  debug_log(log_INFO, "Quitting app: %i\n", exit_code);
+
+  refresh();
+  endwin();
+  debug_log(log_INFO, "Closed ncurses");
+  printf("ncurses closed\n");
+
+  debug_log(log_INFO, "Exiting");
+  printf("Exiting...\n");
+  exit(exit_code);
 }
 
 void sleep_us(size_t microseconds) {
@@ -94,32 +107,32 @@ uint64_t millis(void) {
   return (uint64_t)ts.tv_sec * 1000ULL + ts.tv_nsec / 1000000ULL;
 }
 
-result parse_long(const char* str, long* val) {
+int parse_long(const char* str, long* val) {
   char* endptr;
 
   errno = 0;
   *val = strtol(str, &endptr, 10);
 
-  if (errno != 0) return r_EPARSE;
-  if (str + strlen(str) != endptr) return r_EPARSE;
+  if (errno != 0) RES_RETURN(r_EPARSE, -1);
+  if (str + strlen(str) != endptr) RES_RETURN(r_EPARSE, -1);
 
-  return r_ENONE;
+  RES_RETURN(r_ENONE, 0);
 }
 
-result parse_hex_byte(const char* str, uint8_t* byte) {
+int parse_hex_byte(const char* str, uint8_t* byte) {
   char* endptr;
 
   if (strncasecmp(str, "0x", 2) == 0) str += 2;
 
-  if (strlen(str) > 2) return r_EPARSE;
+  if (strlen(str) > 2) RES_RETURN(r_EPARSE, -1);
 
   errno = 0;
   *byte = strtol(str, &endptr, 16);
 
-  if (errno != 0) return r_EPARSE;
-  if (str + strlen(str) - 1 != endptr) return r_EPARSE;
+  if (errno != 0) RES_RETURN(r_EPARSE, -1);
+  if (str + strlen(str) - 1 != endptr) RES_RETURN(r_EPARSE, -1);
 
-  return r_ENONE;
+  RES_RETURN(r_ENONE, 0);
 }
 
 void print_hex(size_t len, const uint8_t* buf) {
@@ -127,5 +140,13 @@ void print_hex(size_t len, const uint8_t* buf) {
     printf("0x%02x ", buf[i]);
   }
   printf("\n");
+}
+
+void panic(char* msg) {
+  printf("\n\n");
+  printf("WARNING: PROGRAM PANIC - EXITING IMMEDIATELY\n");
+  printf("%s", msg);
+
+  exit(-1);
 }
 

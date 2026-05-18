@@ -1,7 +1,6 @@
 #ifndef VECTOR_H
 #define VECTOR_H
 
-#include "result.h"
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -16,13 +15,13 @@ typedef struct {
   unsigned int elSize;
 } Vec;
 
-#define VEC_ZERO      (Vec){NULL, 0, 0, 0}
+#define VEC_EMPTY      (Vec){NULL, 0, 0, 0}
 
 /**
  * Initalize a vector object
  * Returns 0 on success, -1 on failure
  */
-result vec_init(Vec* vec, unsigned int elSize);
+int vec_init(Vec* vec, unsigned int elSize);
 
 /**
  * Return true if vector memory is not null
@@ -38,19 +37,19 @@ void vec_free(Vec* vec);
  * Double the capacity of the vector if insufficient
  * Half the capacity if the element count is less than half the capacity
  */
-result vec_update_capacity(Vec* vec);
+int vec_update_capacity(Vec* vec);
 
 /**
  * Add the element onto the back of the vector
  * If the capacity is insufficient to support another element, the capacity updating funciton is called
  */
-result vec_push(Vec* vec, void* el);
+int vec_push(Vec* vec, void* el);
 
 /**
  * Remove the element at the back of the vector
  * The capacity updating funciton is called afterwards
  */
-result vec_pop(Vec* vec, void* el);
+int vec_pop(Vec* vec, void* el);
 
 /**
  * Get a pointer to the element at the index
@@ -62,6 +61,6 @@ void* vec_get(Vec* vec, size_t index);
  * Sets the count to 0
  * The capacity updating funciton is called afterwards
  */
-result vec_clear(Vec* vec);
+int vec_clear(Vec* vec);
 
 #endif
