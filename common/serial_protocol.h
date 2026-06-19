@@ -9,6 +9,12 @@
 
 #define SP_CMD_PING             0xC1
 
+#define LOW                     0
+#define HIGH                    1
+
+#define INPUT                   HIGH
+#define OUTPUT                  LOW
+
 // Reading and writing single pins:
 // CMD, PORT, PIN, STATE
 

@@ -22,7 +22,24 @@
 
 static Vec device_list = VEC_EMPTY;
 static ssize_t cycle = 0;
+
 static uint8_t ext_data = 0;
+static uint16_t ext_addr = 0;
+
+int cmd_help(size_t arg_cnt, const char **tokens) {
+  (void)tokens;
+
+  if (arg_cnt != 0) {
+    RES_RETURN(r_EARGS, -1);
+  }
+
+#define X(FUNCTION, CMD, ALT) \
+  printw("%s (%s) => %s\n", CMD, ALT, #FUNCTION);
+  COMMANDS
+#undef X
+
+  RES_RETURN(r_ENONE, 0);
+}
 
 int cmd_quit(size_t arg_cnt, const char** tokens) {
   (void)tokens;
@@ -256,11 +273,35 @@ int cmd_init_emulation(size_t arg_cnt, const char** tokens) {
   RES_RETURN(r_ENONE, 0);
 }
 
+int cmd_init_override(size_t arg_cnt, const char **tokens) {
+  (void)tokens;
+
+  if (arg_cnt != 0) {
+    RES_RETURN(r_EARGS, -1);
+  }
+
+  cycle = 0;
+  cliState = CliState_Override;
+
+  if (io_init()) FAIL_TO_NORMAL;
+  
+  if (io_write_pin(PINS_CTRL_PIN_EXT_CLK_EN, HIGH)) FAIL_TO_NORMAL;
+
+  if (io_write_pin(PINS_CTRL_PIN_EXT_CLK, LOW)) FAIL_TO_NORMAL;
+  
+  if (io_write_pin(PINS_CTRL_PIN_EXT_RESETB, LOW)) FAIL_TO_NORMAL;
+
+  debug_log(log_INFO, "Override initalized");
+  printw("Override initalized\n");
+
+  RES_RETURN(r_ENONE, 0);
+}
+
 int cmd_step(size_t arg_cnt, const char** tokens) {
   (void)tokens;
 
   if (cliState != CliState_Debug && cliState != CliState_EmulateMemory) {
-    printw("Not in an expected mode\n");
+    printw("Not in expected mode\n");
     RES_RETURN(r_ENOT_INIT, -1);
   }
 
@@ -275,6 +316,7 @@ int cmd_step(size_t arg_cnt, const char** tokens) {
   bool cpu_reading;
 
   if (io_cpu_reading(&cpu_reading)) FAIL_TO_NORMAL;
+  
   if (io_read_addrbus(&addrbus)) FAIL_TO_NORMAL;
 
   if (cliState == CliState_EmulateMemory && cpu_reading) {
@@ -291,9 +333,73 @@ int cmd_step(size_t arg_cnt, const char** tokens) {
 
   if (io_set_clock(LOW)) FAIL_TO_NORMAL;
 
-  cycle++;
+  if (cliState == CliState_Debug || cliState == CliState_EmulateMemory) {
+    cycle++;
+  }
 
-  return 0;
+  RES_RETURN(r_ENONE, 0);
+}
+
+int cmd_write(size_t arg_cnt, const char **tokens) {
+  if (cliState != CliState_Override) {
+    printw("Not in expected mode");
+    RES_RETURN(r_ENOT_INIT, -1);
+  }
+
+  if (arg_cnt >= 1) {
+    if (parse_hex_byte(tokens[1], &ext_data)) return -1;
+  }
+
+  if (arg_cnt >= 2) {
+    if (parse_hex_word(tokens[2], &ext_addr)) return -1;
+  }
+
+  if (arg_cnt > 2) {
+    RES_RETURN(r_EARGS, -1);
+  }
+
+  if (io_set_clock(LOW)) return -1;
+  if (io_write_pin(PINS_CTRL_PIN_EXT_RWB, LOW)) FAIL_TO_NORMAL;
+
+  if (io_write_addrbus(ext_addr)) FAIL_TO_NORMAL;
+  if (io_write_databus(ext_data)) FAIL_TO_NORMAL;
+
+  if (io_set_clock(HIGH)) FAIL_TO_NORMAL;
+
+  printw("System writing 0x%02x @ 0x%04x\n", ext_data, ext_addr);
+
+  if (io_set_clock(LOW)) return -1;
+
+  RES_RETURN(r_ENONE, -1);
+}
+
+int cmd_read(size_t arg_cnt, const char **tokens) {
+  if (cliState != CliState_Override) {
+    printw("Not in expected mode");
+    RES_RETURN(r_ENOT_INIT, -1);
+  }
+
+  if (arg_cnt == 1) {
+    if (parse_hex_word(tokens[1], &ext_addr)) return -1;
+  } else if (arg_cnt > 1) {
+    RES_RETURN(r_EARGS, -1);
+  }
+
+  if (io_set_clock(LOW)) return -1;
+
+  uint8_t databus;
+
+  if (io_write_pin(PINS_CTRL_PIN_EXT_RWB, HIGH)) FAIL_TO_NORMAL;
+
+  if (io_write_addrbus(ext_addr)) FAIL_TO_NORMAL;
+  if (io_set_clock(HIGH)) FAIL_TO_NORMAL;
+  if (io_read_databus(&databus)) FAIL_TO_NORMAL;
+
+  printw("System reading 0x%02x @ 0x%04x\n", databus, ext_addr);
+
+  if (io_set_clock(LOW)) return -1;
+
+  RES_RETURN(r_ENONE, -1);
 }
 
 int cmd_reset(size_t arg_cnt, const char **tokens) {
@@ -321,6 +427,18 @@ int cmd_set_data(size_t arg_cnt, const char **tokens) {
   if (arg_cnt != 1) RES_RETURN(r_EARGS, -1);
 
   if (parse_hex_byte(tokens[1], &ext_data)) return -1;
+
+  printw("Data register set to 0x%02x\n", ext_data);
+
+  RES_RETURN(r_ENONE, 0);
+}
+
+int cmd_set_addr(size_t arg_cnt, const char** tokens) {
+  if (arg_cnt != 1) RES_RETURN(r_EARGS, -1);
+
+  if (parse_hex_word(tokens[1], &ext_addr)) return -1;
+
+  printw("Addr register set to 0x%04x\n", ext_addr);
 
   RES_RETURN(r_ENONE, 0);
 }

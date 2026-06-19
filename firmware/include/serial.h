@@ -17,7 +17,7 @@ void ser_init();
 uint8_t ser_available(void);
 
 /*
- * Read from serial into byte once
+ * Read one byte from serial
  * Return 0 on success
 */
 int ser_read(uint8_t* byte);
@@ -35,6 +35,6 @@ void ser_write_buf(uint8_t len, const uint8_t* buf);
 /*
  * Write a null-terminated string to serial
 */
-void ser_write_str(const char* format, ...);
+void ser_printf(const char* format, ...);
 
 #endif

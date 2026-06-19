@@ -3,6 +3,7 @@
 #include "serial_protocol.h"
 #include "meta.h"
 #include "ucobs.h"
+#include "pins.h"
 #include <stdint.h>
 #include <string.h>
 
@@ -25,7 +26,13 @@ uint8_t cmd_exec(uint8_t len, const uint8_t* cmd) {
     case SP_CMD_WRITE: {
       if (arg_cnt != 2) break;
       if (mcp_write_pin(args[0], args[1])) break;
-      if (mcp_read_pin(args[0], cmd_response_buf)) break;
+      uint8_t iodir;
+      if (mcp_read_pin_iodir(args[0], &iodir)) break;
+      if (iodir == OUTPUT) {
+        if (mcp_read_pin_olat(args[0], cmd_response_buf)) break;
+      } else {
+        if (mcp_read_pin(args[0], cmd_response_buf)) break;
+      }
       return 1;
     }
     case SP_CMD_READ: {

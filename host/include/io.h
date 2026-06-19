@@ -22,5 +22,6 @@ int io_cpu_reading(bool* is_reading);
 int io_read_databus(uint8_t* databus);
 int io_read_addrbus(uint16_t* addrbus);
 int io_write_databus(uint8_t databus);
+int io_write_addrbus(uint16_t addrbus);
 
 #endif

@@ -1,10 +1,6 @@
-#include "pins.h"
 #include "mcp23017.h"
-#include "ucobs.h"
-#include "cmd_handler.h"
 #include "serial.h"
 #include "twi.h"
-#include "ucobs.h"
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <stdint.h>
@@ -19,15 +15,7 @@
 
 #define RECV_BUFF_LEN     257
 
-static uint32_t ms_counter = 0;
-static uint32_t led_timer = 0;
-
 int main(void) {
-  TCCR0A = (1 << WGM01);
-  TCCR0B = (1 << CS01) | (1 << CS00);
-  OCR0A = 249;
-  TIMSK0 = (1 << OCIE0A);
-
   DDRB |= _BV(LED_PIN);
   
   twi_init();
@@ -35,45 +23,28 @@ int main(void) {
 
   sei();
 
-  for (int i = 0; i < 32; i++) {
-    mcp_write_pin_iodir(i, INPUT);
-    mcp_write_pin_pull_up(i, LOW);
+  ser_printf("Scanning...\n");
+  for (int i = 0x08; i < 128; i++) {
+    if (!twi_check_device_present(i)) {
+      ser_printf("Device found at 0x%02x\n", i);
+    }
   }
+  ser_printf("Scan done\n");
 
-  uint8_t data_buff[RECV_BUFF_LEN];
-  int16_t data_buff_index = 0;
-  bool recv_sync = false;
-
+  uint8_t byte;
   while (true) {
-    uint8_t byte;
-    if (ser_read(&byte)) continue;
+    if (!ser_read(&byte)) {
+      uint8_t pin;
 
-    if (!recv_sync) {
-      if (byte == 0x00) recv_sync = true;
-      continue;
-    }
+      if (byte >= 'a' && byte <= 'f') pin = byte - 'a' + 10;
+      else if (byte >= 'A' && byte <= 'F') pin = byte - 'A' + 10;
+      else if (byte >= '0' && byte <= '9') pin = byte - '0';
+      else continue;
 
-    if (byte != 0x00) {
-      data_buff[data_buff_index++] = byte;
-    } else {
-      if ((data_buff_index = ucobs_decode(data_buff_index, data_buff, data_buff)) != -1) {
-        uint8_t resp_len = cmd_exec(data_buff_index, data_buff);
-        resp_len = ucobs_encode(resp_len, cmd_response_buf, data_buff);
-        ser_write(0x00);
-        ser_write_buf(resp_len, data_buff);
-        ser_write(0x00);
-      }
-      data_buff_index = 0;
+      ser_printf("Write to pin: %02x\n", pin);
     }
   }
-}
 
-ISR(TIMER0_COMPA_vect) {
-  ms_counter++;
-
-  if (ms_counter >= led_timer) {
-    led_timer = ms_counter + LED_PERIOD / 2;
-    TOGGLE_LED();
-  }
+  while (true);
 }
 

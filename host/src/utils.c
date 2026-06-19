@@ -152,6 +152,39 @@ int parse_hex_byte(const char* str, uint8_t* byte) {
 	RES_RETURN(r_ENONE, 0);
 }
 
+int parse_hex_word(const char* str, uint16_t* word) {
+	char* endptr;
+
+	if (str == NULL || word == NULL)
+		RES_RETURN(r_EARGS, -1);
+
+	if (strncasecmp(str, "0x", 2) == 0)
+		str += 2;
+
+	if (*str == '\0')
+		RES_RETURN(r_EPARSE, -1);
+
+	if (strlen(str) > 4)
+		RES_RETURN(r_EPARSE, -1);
+
+	errno = 0;
+
+	long value = strtol(str, &endptr, 16);
+
+	if (errno != 0)
+		RES_RETURN(r_EPARSE, -1);
+
+	if (*endptr != '\0')
+		RES_RETURN(r_EPARSE, -1);
+
+	if (value < 0 || value > 0xFFFF)
+		RES_RETURN(r_EPARSE, -1);
+
+	*word = (uint16_t)value;
+
+	RES_RETURN(r_ENONE, 0);
+}
+
 void print_hex(size_t len, const uint8_t* buf) {
   for (size_t i = 0; i < len; i++) {
     printf("0x%02x ", buf[i]);

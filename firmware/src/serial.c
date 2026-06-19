@@ -51,7 +51,7 @@ void ser_write_buf(uint8_t len, const uint8_t* buf) {
   }
 }
 
-void ser_write_str(const char* format, ...) {
+void ser_printf(const char* format, ...) {
   char buffer[64];
   va_list args;
 

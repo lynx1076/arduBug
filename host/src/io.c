@@ -22,8 +22,16 @@ int io_init(void) {
     pin_states[i] = (PinState){-1, -1};
   }
 
-  for (int i = 0; i < PIN_COUNT; i++) {
-    if (io_write_iodir(i, INPUT)) return -1;
+  if (io_write_iodir(PINS_CTRL_PIN_EXT_RWB, INPUT)) return -1;
+  if (io_write_pin(PINS_CTRL_PIN_EXT_CLK_EN, HIGH)) return -1;
+  if (io_write_pin(PINS_CTRL_PIN_EXT_RESETB, HIGH)) return -1;
+
+  for (int i = 0; i < 8; i++) {
+    if (io_write_iodir(PINS_DATA_PIN_0 + i, INPUT)) return -1;
+  }
+
+  for (int i = 0; i < 16; i++) {
+    if (io_write_iodir(PINS_ADDR_PIN_0 + i, INPUT)) return -1;
   }
 
   RES_RETURN(r_ENONE, 0);
@@ -129,9 +137,14 @@ int io_pin_writable(int pin, bool* writable) {
     case PINS_DATA_PIN_7: {
       if (cliState != CliState_Override && cliState != CliState_EmulateMemory) RES_RETURN(r_ENONE, 0);
 
+      if (cliState == CliState_EmulateMemory) {
+        *writable = true;
+        RES_RETURN(r_ENONE, 0);
+      }
+
       bool clock_phase;
       if (io_read_pin_output(PINS_CTRL_PIN_EXT_CLK, &clock_phase)) return -1;
-      if (BOOL_CMP(clock_phase, HIGH)) *writable = true;
+      if (BOOL_CMP(clock_phase, LOW)) *writable = true;
     } RES_RETURN(r_ENONE, 0);
 
     case PINS_ADDR_PIN_0:
@@ -154,7 +167,7 @@ int io_pin_writable(int pin, bool* writable) {
 
       bool clock_phase;
       if (io_read_pin_output(PINS_CTRL_PIN_EXT_CLK, &clock_phase)) return -1;
-      if (BOOL_CMP(clock_phase, HIGH)) *writable = true;
+      if (BOOL_CMP(clock_phase, LOW)) *writable = true;
     } RES_RETURN(r_ENONE, 0);
     default: RES_RETURN(r_EARGS, -1);
   }
@@ -275,13 +288,9 @@ int io_pulse_clock(size_t n) {
 }
 
 int io_reset_seq(void) {
-  sleep_ms(100);
   if (io_write_pin(PINS_CTRL_PIN_EXT_RESETB, LOW)) return -1;
-  sleep_ms(100);
   if (io_pulse_clock(2)) return -1;
-  sleep_ms(100);
   if (io_write_pin(PINS_CTRL_PIN_EXT_RESETB, HIGH)) return -1;
-  sleep_ms(100);
 
   RES_RETURN(r_ENONE, 0);
 }

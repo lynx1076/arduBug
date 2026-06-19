@@ -26,6 +26,7 @@ uint64_t micros(void);
 uint64_t millis(void);
 int parse_long(const char* str, long* val);
 int parse_hex_byte(const char* str, uint8_t* byte);
+int parse_hex_word(const char* str, uint16_t* word);
 void print_hex(size_t len, const uint8_t* buf);
 void panic(char* msg);
 
