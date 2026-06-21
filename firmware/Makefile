@@ -10,7 +10,8 @@ SRCS = \
 	src/mcp23017.c \
 	src/serial.c \
 	src/cmd_handler.c \
-	src/utils.c
+	src/utils.c \
+	src/io.c \
 
 COMMON_SRCS = \
 	../common/ucobs.c

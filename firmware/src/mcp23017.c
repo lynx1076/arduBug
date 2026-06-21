@@ -174,7 +174,7 @@ uint8_t mcp_read_pin(uint8_t pin, uint8_t* state) {
 
   uint8_t rel_pin = pin % 8;
  
-  *state = (port >> rel_pin) & 1 ? HIGH : LOW;
+  *state = (port >> rel_pin) & 1 ? pinl_HIGH : pinl_LOW;
 
   return 0;
 }
@@ -191,7 +191,7 @@ uint8_t mcp_read_pin_olat(uint8_t pin, uint8_t* state) {
 
   uint8_t rel_pin = pin % 8;
 
-  *state = (port >> rel_pin) & 1 ? HIGH : LOW;
+  *state = (port >> rel_pin) & 1 ? pinl_HIGH : pinl_LOW;
 
   return 0;
 }
@@ -207,8 +207,8 @@ uint8_t mcp_read_pin_iodir(uint8_t pin, uint8_t* state) {
   if (twi_read_reg(addr, reg, &port)) return 1;
 
   uint8_t rel_pin = pin % 8;
- 
-  *state = (port >> rel_pin) & 1 ? INPUT : OUTPUT;
+  
+  *state = (port >> rel_pin) & 1 ? pinm_INPUT : pinm_OUTPUT;
 
   return 0;
 }
@@ -225,7 +225,7 @@ uint8_t mcp_read_pin_pull_up(uint8_t pin, uint8_t* state) {
 
   uint8_t rel_pin = pin % 8;
  
-  *state = (port >> rel_pin) & 1 ? HIGH : LOW;
+  *state = (port >> rel_pin) & 1 ? pinl_HIGH : pinl_LOW;
 
   return 0;
 }
