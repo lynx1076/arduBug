@@ -11,8 +11,7 @@ SRCS = \
 	src/serial.c \
 	src/cmd_handler.c \
 	src/utils.c \
-	src/mcu_io.c \
-	src/gio.c \
+	src/io.c \
 
 COMMON_SRCS = \
 	../common/ucobs.c
