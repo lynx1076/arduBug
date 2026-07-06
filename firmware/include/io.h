@@ -1,32 +1,12 @@
 #ifndef IO_H
 #define IO_H
 
-#define PINS_PORT_DATABUS           MCP_IO0_PORTA
-#define PINS_PORT_CTRL              MCP_IO0_PORTB
-
-#define PINS_PORT_ADDR_LB           MCP_IO1_PORTA
-#define PINS_PORT_ADDR_HB           MCP_IO1_PORTB
-
-// Signal numbers according to connector-index in schematic
-
-#define IO_EXT_CPU_EN           1
-#define IO_EXT_RESETB           2
-#define 
-
-#define IO_DATA_0               3
-#define IO_DATA_1               5
-#define IO_DATA_2               7
-#define IO_DATA_3               9
-#define IO_DATA_4               13
-#define IO_DATA_5               15
-#define IO_DATA_6               17
-#define IO_DATA_7               19
-
+#include <stdint.h>
 
 typedef enum {
   io_UNKNOWN,
   io_HIGH,
-  io_LOW
+  io_LOW, 
 } IOState;
 
 typedef enum {
@@ -35,4 +15,17 @@ typedef enum {
   iom_OUTPUT
 } IOMode;
 
+typedef struct {
+  const char* name;
+  const uint8_t id;
+  const uint8_t ctx_id;
+
+  IOState state;
+  IOMode mode;
+} IOPin;
+
+uint8_t io_write(IOPin* pin, IOMode mode, IOState state);
+uint8_t io_read(IOPin* pin, IOMode* mode, IOState* state);
+
 #endif
+

@@ -1,6 +1,6 @@
 #include "mcp23017.h"
-#include "pins.h"
 #include "twi.h"
+#include "io.h"
 #include <stdint.h>
 
 #define MCP_ADDR_IO0      0x20
@@ -32,7 +32,7 @@ static uint8_t get_addr_from_pin(uint8_t pin, uint8_t* addr) {
   return 1;
 }
 
-static uint8_t get_gpio_from_pin(uint8_t pin, uint8_t* port) {
+static uint8_t get_read_from_pin(uint8_t pin, uint8_t* port) {
   if (pin / 16 >= 2) return 1;
 
   uint8_t rel_pin = pin % 16;
@@ -68,24 +68,6 @@ static uint8_t get_iodir_from_pin(uint8_t pin, uint8_t* iodir) {
   return 1;
 }
 
-static uint8_t get_pull_up_from_pin(uint8_t pin, uint8_t* pull_up) {
-  if (pin / 16 >= 2) return 1;
-
-  uint8_t rel_pin = pin % 16;
-
-  if (rel_pin < 8) {
-    *pull_up = MCP_PULLUPA;
-    return 0;
-  }
-
-  if (rel_pin >= 8) {
-    *pull_up = MCP_PULLUPB;
-    return 0;
-  }
-
-  return 1;
-}
-
 static uint8_t get_olat_from_pin(uint8_t pin, uint8_t* olat) {
   if (pin / 16 >= 2) return 1;
 
@@ -104,82 +86,7 @@ static uint8_t get_olat_from_pin(uint8_t pin, uint8_t* olat) {
   return 1;
 }
 
-uint8_t mcp_write_pin(uint8_t pin, uint8_t state) {
-  uint8_t addr;
-  if (get_addr_from_pin(pin, &addr)) return 1;
-
-  uint8_t reg;
-  if (get_gpio_from_pin(pin, &reg)) return 1;
-
-  uint8_t port;
-  if (twi_read_reg(addr, reg, &port)) return 1;
-
-
-  uint8_t rel_pin = (pin % 16) % 8;
- 
-  port = (port & ~(1 << rel_pin)) | ((state & 0x01) << rel_pin);
-
-  if (twi_write_reg(addr, reg, port)) return 1;
-
-  return 0;
-}
-
-uint8_t mcp_write_pin_iodir(uint8_t pin, uint8_t state) {
-  uint8_t addr;
-  if (get_addr_from_pin(pin, &addr)) return 1;
-
-  uint8_t reg;
-  if (get_iodir_from_pin(pin, &reg)) return 1;
-
-  uint8_t port;
-  if (twi_read_reg(addr, reg, &port)) return 1;
-
-  uint8_t rel_pin = (pin % 16) % 8;
- 
-  port = (port & ~(1 << rel_pin)) | ((state & 0x01) << rel_pin);
-
-  if (twi_write_reg(addr, reg, port)) return 1;
-
-  return 0;
-}
-
-uint8_t mcp_write_pin_pull_up(uint8_t pin, uint8_t state) {
-  uint8_t addr;
-  if (get_addr_from_pin(pin, &addr)) return 1;
-
-  uint8_t reg;
-  if (get_pull_up_from_pin(pin, &reg)) return 1;
-
-  uint8_t port;
-  if (twi_read_reg(addr, reg, &port)) return 1;
-
-  uint8_t rel_pin = (pin % 16) % 8;
- 
-  port = (port & ~(1 << rel_pin)) | ((state & 0x01) << rel_pin);
-
-  if (twi_write_reg(addr, reg, port)) return 1;
-
-  return 0;
-}
-
-uint8_t mcp_read_pin(uint8_t pin, uint8_t* state) {
-  uint8_t addr;
-  if (get_addr_from_pin(pin, &addr)) return 1;
-
-  uint8_t reg;
-  if (get_gpio_from_pin(pin, &reg)) return 1;
-
-  uint8_t port;
-  if (twi_read_reg(addr, reg, &port)) return 1;
-
-  uint8_t rel_pin = pin % 8;
- 
-  *state = (port >> rel_pin) & 1 ? pinl_HIGH : pinl_LOW;
-
-  return 0;
-}
-
-uint8_t mcp_read_pin_olat(uint8_t pin, uint8_t* state) {
+uint8_t mcp_write_pin(uint8_t pin, IOState state) {
   uint8_t addr;
   if (get_addr_from_pin(pin, &addr)) return 1;
 
@@ -189,14 +96,17 @@ uint8_t mcp_read_pin_olat(uint8_t pin, uint8_t* state) {
   uint8_t port;
   if (twi_read_reg(addr, reg, &port)) return 1;
 
-  uint8_t rel_pin = pin % 8;
 
-  *state = (port >> rel_pin) & 1 ? pinl_HIGH : pinl_LOW;
+  uint8_t rel_pin = (pin % 16) % 8;
+ 
+  port = (port & ~(1 << rel_pin)) | ((state == io_HIGH ? MCP_HIGH : MCP_LOW) << rel_pin);
+
+  if (twi_write_reg(addr, reg, port)) return 1;
 
   return 0;
 }
 
-uint8_t mcp_read_pin_iodir(uint8_t pin, uint8_t* state) {
+uint8_t mcp_write_pin_iodir(uint8_t pin, IOMode mode) {
   uint8_t addr;
   if (get_addr_from_pin(pin, &addr)) return 1;
 
@@ -206,26 +116,28 @@ uint8_t mcp_read_pin_iodir(uint8_t pin, uint8_t* state) {
   uint8_t port;
   if (twi_read_reg(addr, reg, &port)) return 1;
 
-  uint8_t rel_pin = pin % 8;
-  
-  *state = (port >> rel_pin) & 1 ? pinm_INPUT : pinm_OUTPUT;
+  uint8_t rel_pin = (pin % 16) % 8;
+ 
+  port = (port & ~(1 << rel_pin)) | ((mode == iom_OUTPUT ? MCP_OUTPUT : MCP_INPUT) << rel_pin);
+
+  if (twi_write_reg(addr, reg, port)) return 1;
 
   return 0;
 }
 
-uint8_t mcp_read_pin_pull_up(uint8_t pin, uint8_t* state) {
+uint8_t mcp_read_pin(uint8_t pin, IOState* state) {
   uint8_t addr;
   if (get_addr_from_pin(pin, &addr)) return 1;
 
   uint8_t reg;
-  if (get_pull_up_from_pin(pin, &reg)) return 1;
+  if (get_read_from_pin(pin, &reg)) return 1;
 
   uint8_t port;
   if (twi_read_reg(addr, reg, &port)) return 1;
 
   uint8_t rel_pin = pin % 8;
  
-  *state = (port >> rel_pin) & 1 ? pinl_HIGH : pinl_LOW;
+  *state = ((port >> rel_pin) & 1) == MCP_HIGH ? io_HIGH : io_LOW;
 
   return 0;
 }
