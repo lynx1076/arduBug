@@ -4,28 +4,38 @@
 #include <stdint.h>
 
 typedef enum {
-  io_UNKNOWN,
+  io_UNKNOWN = -1,
   io_HIGH,
   io_LOW, 
 } IOState;
 
 typedef enum {
-  iom_UNKNOWN,
+  iom_UNKNOWN = -1,
   iom_INPUT,
   iom_OUTPUT
 } IOMode;
 
+typedef void IOContext;
+
+typedef struct {
+  uint8_t (*write)(IOContext* ctx, IOState writeState);
+  uint8_t (*read)(IOContext* ctx, IOState* readState);
+  uint8_t (*read_olat)(IOContext* ctx, IOState* readState);
+  uint8_t (*highz)(IOContext* ctx);
+} IOVtable;
+
 typedef struct {
   const char* name;
   const uint8_t id;
-  const uint8_t ctx_id;
 
-  IOState state;
-  IOMode mode;
+  const IOVtable* vtable;
+  IOContext* context;
 } IOPin;
 
-uint8_t io_write(IOPin* pin, IOMode mode, IOState state);
-uint8_t io_read(IOPin* pin, IOMode* mode, IOState* state);
+uint8_t io_write(IOPin* pin, IOState state);
+uint8_t io_read(IOPin* pin, IOState* state);
+uint8_t io_read_olat(IOPin* pin, IOState* state);
+uint8_t io_highz(IOPin* pin);
 
 #endif
 
