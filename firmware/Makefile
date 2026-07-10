@@ -12,6 +12,8 @@ SRCS = \
 	src/cmd_handler.c \
 	src/utils.c \
 	src/io.c \
+	src/mcu_io.c \
+	src/io_defs.c \
 
 COMMON_SRCS = \
 	../common/ucobs.c

@@ -45,10 +45,39 @@ uint8_t twi_start(void) {
   return (status != TWI_START && status != TWI_REP_START);
 }
 
+
 void twi_stop(void) {
   TWCR = _BV(TWINT) | _BV(TWEN) | _BV(TWSTO);
-  // Wait for STOP condition to complete
-  while (TWCR & _BV(TWSTO));
+  uint16_t elapsed = 0;
+  while (TWCR & _BV(TWSTO)) {
+    _delay_ms(1);
+    if (elapsed++ >= TWI_TIMEOUT_MS) {
+      uint8_t old_ddrc = DDRC;
+      uint8_t old_portc = PORTC;
+
+      TWCR = 0;
+
+      DDRC |= _BV(TWI_PIN_SCL);
+      for (int i = 0; i < 9; i++) {
+        PORTC &= ~_BV(TWI_PIN_SCL);
+        _delay_us(5);
+        PORTC |= _BV(TWI_PIN_SCL);
+        _delay_us(5);
+      }
+
+      PORTC = old_portc;
+      DDRC = old_ddrc;
+      TWCR = _BV(TWEN);
+
+      TWCR = _BV(TWINT) | _BV(TWEN) | _BV(TWSTO);
+      uint16_t small_elapsed = 0;
+      while (TWCR & _BV(TWSTO)) {
+        _delay_ms(1);
+        if (small_elapsed++ >= 10) break;
+      }
+      break;
+    }
+  }
 }
 
 uint8_t twi_write(uint8_t data) {
@@ -60,6 +89,8 @@ uint8_t twi_write(uint8_t data) {
 }
 
 uint8_t twi_read_ack(uint8_t *data) {
+  if (!data) return 1;
+
   TWCR = _BV(TWINT) | _BV(TWEN) | _BV(TWEA);
   if (twi_wait_twint()) return 1;
   *data = TWDR;
@@ -68,6 +99,8 @@ uint8_t twi_read_ack(uint8_t *data) {
 }
 
 uint8_t twi_read_nack(uint8_t *data) {
+  if (!data) return 1;
+  
   TWCR = _BV(TWINT) | _BV(TWEN);
   if (twi_wait_twint()) return 1;
   *data = TWDR;

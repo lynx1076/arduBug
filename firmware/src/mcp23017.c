@@ -18,105 +18,36 @@
 #define MCP_PULLUPA       0x0C
 #define MCP_PULLUPB       0x0D
 
-static uint8_t get_addr_from_pin(uint8_t pin, uint8_t* addr) {
-  if (pin < 16) {
-    *addr = MCP_ADDR_IO0;
-    return 0;
-  }
+#define MCP_HIGH        1
+#define MCP_LOW         0
+#define MCP_OUTPUT      0
+#define MCP_INPUT       1
 
-  if (pin >= 16 && pin < 32) {
-    *addr = MCP_ADDR_IO1;
-    return 0;
-  }
+#define GET_ADDR(CTX) ((CTX)->pin < 16 ? MCP_ADDR_IO0 : MCP_ADDR_IO1)
+#define GET_AB(CTX) ((CTX)->pin % 16 < 8)
+#define GET_IODIR(CTX) (GET_AB(CTX) ? MCP_IODIRA : MCP_IODIRB)
+#define GET_GPIO(CTX) (GET_AB(CTX) ? MCP_GPIOA : MCP_GPIOB)
+#define GET_OLAT(CTX) (GET_AB(CTX) ? MCP_OLATA : MCP_OLATB)
 
-  return 1;
-}
+const IOVtable mcp_vtable = {
+  .write = &mcp_write_pin_w,
+  .read = &mcp_read_pin_w,
+  .read_olat = &mcp_read_olat_w,
+  .highz = &mcp_highz_w
+};
 
-static uint8_t get_read_from_pin(uint8_t pin, uint8_t* port) {
-  if (pin / 16 >= 2) return 1;
+uint8_t mcp_write_pin_iodir(MCPContext* ctx, IOMode mode) {
+  if (!ctx) return 1;
+  if (ctx->pin > 31) return 1;
+  if (mode != iom_INPUT && mode != iom_OUTPUT) return 1;
 
-  uint8_t rel_pin = pin % 16;
-
-  if (rel_pin < 8) {
-    *port = MCP_GPIOA;
-    return 0;
-  }
-
-  if (rel_pin >= 8) {
-    *port = MCP_GPIOB;
-    return 0;
-  }
-
-  return 1;
-}
-
-static uint8_t get_iodir_from_pin(uint8_t pin, uint8_t* iodir) {
-  if (pin / 16 >= 2) return 1;
-
-  uint8_t rel_pin = pin % 16;
-
-  if (rel_pin < 8) {
-    *iodir = MCP_IODIRA;
-    return 0;
-  }
-
-  if (rel_pin >= 8) {
-    *iodir = MCP_IODIRB;
-    return 0;
-  }
-
-  return 1;
-}
-
-static uint8_t get_olat_from_pin(uint8_t pin, uint8_t* olat) {
-  if (pin / 16 >= 2) return 1;
-
-  uint8_t rel_pin = pin % 16;
-
-  if (rel_pin < 8) {
-    *olat = MCP_OLATA;
-    return 0;
-  }
-
-  if (rel_pin >= 8) {
-    *olat = MCP_OLATB;
-    return 0;
-  }
-
-  return 1;
-}
-
-uint8_t mcp_write_pin(uint8_t pin, IOState state) {
-  uint8_t addr;
-  if (get_addr_from_pin(pin, &addr)) return 1;
-
-  uint8_t reg;
-  if (get_olat_from_pin(pin, &reg)) return 1;
+  uint8_t addr = GET_ADDR(ctx);
+  uint8_t reg = GET_IODIR(ctx);
 
   uint8_t port;
   if (twi_read_reg(addr, reg, &port)) return 1;
 
-
-  uint8_t rel_pin = (pin % 16) % 8;
- 
-  port = (port & ~(1 << rel_pin)) | ((state == io_HIGH ? MCP_HIGH : MCP_LOW) << rel_pin);
-
-  if (twi_write_reg(addr, reg, port)) return 1;
-
-  return 0;
-}
-
-uint8_t mcp_write_pin_iodir(uint8_t pin, IOMode mode) {
-  uint8_t addr;
-  if (get_addr_from_pin(pin, &addr)) return 1;
-
-  uint8_t reg;
-  if (get_iodir_from_pin(pin, &reg)) return 1;
-
-  uint8_t port;
-  if (twi_read_reg(addr, reg, &port)) return 1;
-
-  uint8_t rel_pin = (pin % 16) % 8;
+  uint8_t rel_pin = ctx->pin % 8;
  
   port = (port & ~(1 << rel_pin)) | ((mode == iom_OUTPUT ? MCP_OUTPUT : MCP_INPUT) << rel_pin);
 
@@ -125,20 +56,89 @@ uint8_t mcp_write_pin_iodir(uint8_t pin, IOMode mode) {
   return 0;
 }
 
-uint8_t mcp_read_pin(uint8_t pin, IOState* state) {
-  uint8_t addr;
-  if (get_addr_from_pin(pin, &addr)) return 1;
+uint8_t mcp_write_pin(MCPContext* ctx, IOState state) {
+  if (!ctx) return 1;
+  if (ctx->pin > 31) return 1;
 
-  uint8_t reg;
-  if (get_read_from_pin(pin, &reg)) return 1;
+  uint8_t addr = GET_ADDR(ctx);
+  uint8_t reg = GET_GPIO(ctx);
 
   uint8_t port;
   if (twi_read_reg(addr, reg, &port)) return 1;
 
-  uint8_t rel_pin = pin % 8;
+
+  if (mcp_write_pin_iodir(ctx, iom_OUTPUT)) return 1;
+
+  uint8_t rel_pin = ctx->pin % 8;
+ 
+  port = (port & ~(1 << rel_pin)) | ((state == io_HIGH ? MCP_HIGH : MCP_LOW) << rel_pin);
+
+  if (twi_write_reg(addr, reg, port)) return 1;
+
+  return 0;
+}
+
+uint8_t mcp_read_pin(MCPContext* ctx, IOState* state) {
+  if (!ctx) return 1;
+  if (ctx->pin > 31) return 1;
+
+  if (mcp_write_pin_iodir(ctx, iom_INPUT)) return 1;
+
+  uint8_t addr = GET_ADDR(ctx);
+  uint8_t reg = GET_GPIO(ctx);
+
+  uint8_t port;
+  if (twi_read_reg(addr, reg, &port)) return 1;
+
+  uint8_t rel_pin = ctx->pin % 8;
  
   *state = ((port >> rel_pin) & 1) == MCP_HIGH ? io_HIGH : io_LOW;
 
   return 0;
+}
+
+uint8_t mcp_read_olat(MCPContext* ctx, IOState* state) {
+  if (!ctx) return 1;
+  if (ctx->pin > 31) return 1;
+
+  uint8_t addr = GET_ADDR(ctx);
+  uint8_t reg = GET_OLAT(ctx);
+
+  uint8_t port;
+  if (twi_read_reg(addr, reg, &port)) return 1;
+
+  uint8_t rel_pin = ctx->pin % 8;
+ 
+  *state = ((port >> rel_pin) & 1) == MCP_HIGH ? io_HIGH : io_LOW;
+
+  return 0;
+}
+
+uint8_t mcp_highz(MCPContext* ctx) {
+  if (!ctx) return 1;
+
+  if (mcp_write_pin_iodir(ctx, iom_INPUT)) return 1;
+
+  return 0;
+}
+
+uint8_t mcp_write_pin_iodir_w(IOContext* ctx, IOMode mode) {
+  return mcp_write_pin_iodir((MCPContext*)ctx, mode);
+}
+
+uint8_t mcp_write_pin_w(IOContext* ctx, IOState state) {
+  return mcp_write_pin((MCPContext*)ctx, state);
+}
+
+uint8_t mcp_read_pin_w(IOContext* ctx, IOState* state) {
+  return mcp_read_pin((MCPContext*)ctx, state);
+}
+
+uint8_t mcp_read_olat_w(IOContext* ctx, IOState* state) {
+  return mcp_read_olat((MCPContext*)ctx, state);
+}
+
+uint8_t mcp_highz_w(IOContext* ctx) {
+  return mcp_highz((MCPContext*)ctx);
 }
 

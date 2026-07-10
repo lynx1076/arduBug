@@ -1,9 +1,7 @@
 #include "cmd_handler.h"
-#include "mcp23017.h"
 #include "serial_protocol.h"
 #include "meta.h"
 #include "ucobs.h"
-#include "pins.h"
 #include <stdint.h>
 #include <string.h>
 
@@ -11,6 +9,7 @@ uint8_t cmd_response_buf[UCOBS_MAX_DATA_LEN];
 
 uint8_t cmd_exec(uint8_t len, const uint8_t* cmd) {
   const uint8_t* args = cmd + 1;
+  (void)args;
   uint8_t arg_cnt = len - 1;
 
   switch (*cmd) {
@@ -25,41 +24,26 @@ uint8_t cmd_exec(uint8_t len, const uint8_t* cmd) {
     }
     case SP_CMD_WRITE: {
       if (arg_cnt != 2) break;
-      if (mcp_write_pin(args[0], args[1])) break;
-      uint8_t iodir;
-      if (mcp_read_pin_iodir(args[0], &iodir)) break;
-      if (iodir == OUTPUT) {
-        if (mcp_read_pin_olat(args[0], cmd_response_buf)) break;
-      } else {
-        if (mcp_read_pin(args[0], cmd_response_buf)) break;
-      }
       return 1;
     }
     case SP_CMD_READ: {
       if (arg_cnt != 1) break;
-      if (mcp_read_pin(args[0], cmd_response_buf)) break;
       return 1;
     }
     case SP_CMD_WRITE_IODIR: {
       if (arg_cnt != 2) break;
-      if (mcp_write_pin_iodir(args[0], args[1])) break;
-      if (mcp_read_pin_iodir(args[0], cmd_response_buf)) break;
       return 1;
     }
     case SP_CMD_READ_IODIR: {
       if (arg_cnt != 1) break;
-      if (mcp_read_pin_iodir(args[0], cmd_response_buf)) break;
       return 1;
     }
     case SP_CMD_WRITE_PULL_UP: {
       if (arg_cnt != 2) break;
-      if (mcp_write_pin_pull_up(args[0], args[1])) break;
-      if (mcp_read_pin_pull_up(args[0], cmd_response_buf)) break;
       return 1;
     }
     case SP_CMD_READ_PULL_UP: {
       if (arg_cnt != 1) break;
-      if (mcp_read_pin_pull_up(args[0], cmd_response_buf)) break;
       return 1;
     }
     default: break;

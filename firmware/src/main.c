@@ -1,3 +1,5 @@
+#include "io.h"
+#include "io_defs.h"
 #include "serial.h"
 #include "twi.h"
 #include <avr/io.h>
@@ -28,6 +30,25 @@ int main(void) {
     }
   }
   ser_printf("Scan done\n");
+
+  while (true) {
+    IOState state;
+    if (io_read(&pin_EXT_CPU_EN, &state)) {
+      ser_printf("Failed read\n");
+      _delay_ms(1000);
+      continue;
+    }
+    _delay_ms(10);
+
+    if (io_write(&pin_EXT_RESETB, state == io_HIGH ? io_LOW : io_HIGH)) {
+      ser_printf("Failed write\n");
+      _delay_ms(1000);
+      continue;
+    }
+    _delay_ms(10);
+
+    ser_printf("State: %s\n", state == io_HIGH ? "HIGH" : "LOW");
+  }
 
   while (true);
 }
