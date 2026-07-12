@@ -9,6 +9,7 @@ extern IOPin pin_EXT_CLK_EN;
 extern IOPin pin_EXT_CLK;
 extern IOPin pin_DEV_TBO;
 extern IOPin pin_VPB;
+extern IOPin pin_MLB;
 
 extern IOPin pin_SYNC;
 extern IOPin pin_DEV_ENB;
@@ -24,6 +25,7 @@ extern IOPin pin_DATA_4;
 extern IOPin pin_DATA_5;
 extern IOPin pin_DATA_6;
 extern IOPin pin_DATA_7;
+extern IOPin* bus_data[8];
 
 extern IOPin pin_ADDR_00;
 extern IOPin pin_ADDR_01;
@@ -41,6 +43,7 @@ extern IOPin pin_ADDR_12;
 extern IOPin pin_ADDR_13;
 extern IOPin pin_ADDR_14;
 extern IOPin pin_ADDR_15;
+extern IOPin* bus_addr[16];
 
 #endif
 

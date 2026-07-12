@@ -33,7 +33,7 @@ static uint8_t twi_wait_twint(void) {
 }
 
 void twi_init(void) {
-  TWBR = 72;
+  TWBR = ((F_CPU / TWI_BITRATE_HZ) - 16) / 2;
   TWSR = 0x00;
   TWCR = _BV(TWEN);
 }

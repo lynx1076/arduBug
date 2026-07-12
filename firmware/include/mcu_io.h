@@ -31,21 +31,21 @@
 #define MIO_PD7       22
 
 typedef struct {
-  uint8_t pin;
+  const uint8_t pin;
 } MIOContext;
 
 extern const IOVtable mio_vtable;
 
-uint8_t mio_write_pin_iodir(MIOContext* ctx, IOMode mode);
-uint8_t mio_write_pin(MIOContext* ctx, IOState state);
-uint8_t mio_read_pin(MIOContext* ctx, IOState* state);
-uint8_t mio_read_olat(MIOContext* ctx, IOState* state);
-uint8_t mio_highz(MIOContext* ctx);
+uint8_t mio_write_pin_iodir(const MIOContext* ctx, IOMode mode);
+uint8_t mio_write_pin(const MIOContext* ctx, IOLevel state);
+uint8_t mio_read_pin(const MIOContext* ctx, IOLevel* state);
+uint8_t mio_read_olat(const MIOContext* ctx, IOLevel* state);
+uint8_t mio_highz(const MIOContext* ctx);
 
-uint8_t mio_write_pin_iodir_w(IOContext* ctx, IOMode mode);
-uint8_t mio_write_pin_w(IOContext* ctx, IOState state);
-uint8_t mio_read_pin_w(IOContext* ctx, IOState* state);
-uint8_t mio_read_olat_w(IOContext* ctx, IOState* state);
-uint8_t mio_highz_w(IOContext* ctx);
+uint8_t mio_write_pin_iodir_w(const IOContext* ctx, IOMode mode);
+uint8_t mio_write_pin_w(const IOContext* ctx, IOLevel state);
+uint8_t mio_read_pin_w(const IOContext* ctx, IOLevel* state);
+uint8_t mio_read_olat_w(const IOContext* ctx, IOLevel* state);
+uint8_t mio_highz_w(const IOContext* ctx);
 
 #endif

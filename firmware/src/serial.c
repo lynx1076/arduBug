@@ -32,8 +32,8 @@ uint8_t ser_available(void) {
   else return SER_RX_BUF_SIZE - tail + head;
 }
 
-int ser_read(uint8_t* byte) {
-  if (!ser_available()) return -1;
+uint8_t ser_read(uint8_t* byte) {
+  if (!ser_available()) return 1;
   if (byte) *byte = ring_buf[tail];
   if (++tail >= SER_RX_BUF_SIZE) tail = 0;
   return 0;

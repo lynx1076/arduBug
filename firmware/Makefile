@@ -14,6 +14,7 @@ SRCS = \
 	src/io.c \
 	src/mcu_io.c \
 	src/io_defs.c \
+	src/bus_interface.c \
 
 COMMON_SRCS = \
 	../common/ucobs.c

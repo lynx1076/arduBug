@@ -29,6 +29,18 @@
 #define GET_GPIO(CTX) (GET_AB(CTX) ? MCP_GPIOA : MCP_GPIOB)
 #define GET_OLAT(CTX) (GET_AB(CTX) ? MCP_OLATA : MCP_OLATB)
 
+uint8_t mcp_write_pin_iodir(const MCPContext* ctx, IOMode mode);
+uint8_t mcp_write_pin(const MCPContext* ctx, IOLevel state);
+uint8_t mcp_read_pin(const MCPContext* ctx, IOLevel* state);
+uint8_t mcp_read_olat(const MCPContext* ctx, IOLevel* state);
+uint8_t mcp_highz(const MCPContext* ctx);
+
+uint8_t mcp_write_pin_iodir_w(const IOContext* ctx, IOMode mode);
+uint8_t mcp_write_pin_w(const IOContext* ctx, IOLevel state);
+uint8_t mcp_read_pin_w(const IOContext* ctx, IOLevel* state);
+uint8_t mcp_read_olat_w(const IOContext* ctx, IOLevel* state);
+uint8_t mcp_highz_w(const IOContext* ctx);
+
 const IOVtable mcp_vtable = {
   .write = &mcp_write_pin_w,
   .read = &mcp_read_pin_w,
@@ -36,7 +48,7 @@ const IOVtable mcp_vtable = {
   .highz = &mcp_highz_w
 };
 
-uint8_t mcp_write_pin_iodir(MCPContext* ctx, IOMode mode) {
+uint8_t mcp_write_pin_iodir(const MCPContext* ctx, IOMode mode) {
   if (!ctx) return 1;
   if (ctx->pin > 31) return 1;
   if (mode != iom_INPUT && mode != iom_OUTPUT) return 1;
@@ -49,14 +61,23 @@ uint8_t mcp_write_pin_iodir(MCPContext* ctx, IOMode mode) {
 
   uint8_t rel_pin = ctx->pin % 8;
  
+
   port = (port & ~(1 << rel_pin)) | ((mode == iom_OUTPUT ? MCP_OUTPUT : MCP_INPUT) << rel_pin);
 
   if (twi_write_reg(addr, reg, port)) return 1;
 
+  if (mode == iom_INPUT) {
+    uint8_t pull_reg = GET_AB(ctx) ? MCP_PULLUPA : MCP_PULLUPB;
+    uint8_t pull;
+    if (twi_read_reg(addr, pull_reg, &pull)) return 1;
+    pull &= ~(1 << rel_pin);
+    if (twi_write_reg(addr, pull_reg, pull)) return 1;
+  }
+
   return 0;
 }
 
-uint8_t mcp_write_pin(MCPContext* ctx, IOState state) {
+uint8_t mcp_write_pin(const MCPContext* ctx, IOLevel state) {
   if (!ctx) return 1;
   if (ctx->pin > 31) return 1;
 
@@ -65,7 +86,6 @@ uint8_t mcp_write_pin(MCPContext* ctx, IOState state) {
 
   uint8_t port;
   if (twi_read_reg(addr, reg, &port)) return 1;
-
 
   if (mcp_write_pin_iodir(ctx, iom_OUTPUT)) return 1;
 
@@ -78,7 +98,7 @@ uint8_t mcp_write_pin(MCPContext* ctx, IOState state) {
   return 0;
 }
 
-uint8_t mcp_read_pin(MCPContext* ctx, IOState* state) {
+uint8_t mcp_read_pin(const MCPContext* ctx, IOLevel* state) {
   if (!ctx) return 1;
   if (ctx->pin > 31) return 1;
 
@@ -97,12 +117,14 @@ uint8_t mcp_read_pin(MCPContext* ctx, IOState* state) {
   return 0;
 }
 
-uint8_t mcp_read_olat(MCPContext* ctx, IOState* state) {
+uint8_t mcp_read_olat(const MCPContext* ctx, IOLevel* state) {
   if (!ctx) return 1;
   if (ctx->pin > 31) return 1;
 
   uint8_t addr = GET_ADDR(ctx);
   uint8_t reg = GET_OLAT(ctx);
+
+  if (mcp_write_pin_iodir(ctx, iom_OUTPUT)) return 1;
 
   uint8_t port;
   if (twi_read_reg(addr, reg, &port)) return 1;
@@ -114,7 +136,7 @@ uint8_t mcp_read_olat(MCPContext* ctx, IOState* state) {
   return 0;
 }
 
-uint8_t mcp_highz(MCPContext* ctx) {
+uint8_t mcp_highz(const MCPContext* ctx) {
   if (!ctx) return 1;
 
   if (mcp_write_pin_iodir(ctx, iom_INPUT)) return 1;
@@ -122,23 +144,23 @@ uint8_t mcp_highz(MCPContext* ctx) {
   return 0;
 }
 
-uint8_t mcp_write_pin_iodir_w(IOContext* ctx, IOMode mode) {
-  return mcp_write_pin_iodir((MCPContext*)ctx, mode);
+uint8_t mcp_write_pin_iodir_w(const IOContext* ctx, IOMode mode) {
+  return mcp_write_pin_iodir((const MCPContext*)ctx, mode);
 }
 
-uint8_t mcp_write_pin_w(IOContext* ctx, IOState state) {
-  return mcp_write_pin((MCPContext*)ctx, state);
+uint8_t mcp_write_pin_w(const IOContext* ctx, IOLevel state) {
+  return mcp_write_pin((const MCPContext*)ctx, state);
 }
 
-uint8_t mcp_read_pin_w(IOContext* ctx, IOState* state) {
-  return mcp_read_pin((MCPContext*)ctx, state);
+uint8_t mcp_read_pin_w(const IOContext* ctx, IOLevel* state) {
+  return mcp_read_pin((const MCPContext*)ctx, state);
 }
 
-uint8_t mcp_read_olat_w(IOContext* ctx, IOState* state) {
-  return mcp_read_olat((MCPContext*)ctx, state);
+uint8_t mcp_read_olat_w(const IOContext* ctx, IOLevel* state) {
+  return mcp_read_olat((const MCPContext*)ctx, state);
 }
 
-uint8_t mcp_highz_w(IOContext* ctx) {
-  return mcp_highz((MCPContext*)ctx);
+uint8_t mcp_highz_w(const IOContext* ctx) {
+  return mcp_highz((const MCPContext*)ctx);
 }
 

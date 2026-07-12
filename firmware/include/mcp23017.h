@@ -47,18 +47,5 @@ typedef struct {
 
 extern const IOVtable mcp_vtable;
 
-
-uint8_t mcp_write_pin_iodir(MCPContext* ctx, IOMode mode);
-uint8_t mcp_write_pin(MCPContext* ctx, IOState state);
-uint8_t mcp_read_pin(MCPContext* ctx, IOState* state);
-uint8_t mcp_read_olat(MCPContext* ctx, IOState* state);
-uint8_t mcp_highz(MCPContext* ctx);
-
-uint8_t mcp_write_pin_iodir_w(IOContext* ctx, IOMode mode);
-uint8_t mcp_write_pin_w(IOContext* ctx, IOState state);
-uint8_t mcp_read_pin_w(IOContext* ctx, IOState* state);
-uint8_t mcp_read_olat_w(IOContext* ctx, IOState* state);
-uint8_t mcp_highz_w(IOContext* ctx);
-
 #endif
 

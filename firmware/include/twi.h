@@ -3,6 +3,8 @@
 
 #include <avr/io.h>
 
+#define TWI_BITRATE_HZ      400000UL
+
 #define TWI_READ            1
 #define TWI_WRITE           0
 

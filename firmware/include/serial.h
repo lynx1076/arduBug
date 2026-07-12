@@ -20,7 +20,7 @@ uint8_t ser_available(void);
  * Read one byte from serial
  * Return 0 on success
 */
-int ser_read(uint8_t* byte);
+uint8_t ser_read(uint8_t* byte);
 
 /*
  * Write byte to serial
