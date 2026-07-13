@@ -1,6 +1,6 @@
 #include "bus_interface.h"
 #include "io.h"
-#include "io_defs.h"
+#include "meta.h"
 #include "serial.h"
 #include "twi.h"
 #include "ucobs.h"
@@ -29,6 +29,30 @@ int main(void) {
 
   sei();
 
+  ser_printf("Init %s\n\n", VERSION_TXT);
+  
+  const uint8_t test[] = {
+    0x78,
+    0xD8,
+    0xA2, 0xFF,
+    0x9A,
+    0xEE, 0x00, 0x02,
+    0x4C, 0x05, 0x80
+  };
+
+  ser_printf("Flashing program\n");
+  for (uint8_t i = 0; i < sizeof(test) / sizeof(*test); i++) {
+    uint16_t addr = 0x8000 + i;
+    if (bif_mem_write(addr, test[i])) reset();
+    ser_printf("Prog 0x%02x to 0x%04x\n", test[i], addr);
+  }
+  ser_printf("Finished flashing\n");
+
+  ser_printf("Prog reset vec\n");
+  if (bif_mem_write(0xfffc, 0x00)) reset();
+  if (bif_mem_write(0xfffd, 0x80)) reset();
+  ser_printf("Done prog reset vec\n");
+
   if (bif_set_dev_en(true)) reset();
   if (bif_set_ext_clk_en(true)) reset();
   if (bif_set_cpu_en(true)) reset();
@@ -50,8 +74,13 @@ int main(void) {
     bool sync;
     if (bif_read_sync(&sync)) reset();
 
-    ser_printf("CPU is %s 0x%04x: 0x%02x\n", writing ? "WRITING" : "READING", addr, data);
-    ser_printf("Bus is %sowned, CPU is %sfetching opcode\n", bus_owned ? "" : "not ", sync ? "" : "not ");
+    bool vp;
+    if (bif_read_vp(&vp)) reset();
+
+    if (vp) ser_printf("Cpu is fetching vector\n");
+    if (sync) ser_printf("Cpu is fetching opcode\n");
+    if (!bus_owned) ser_printf("Bus is not owned\n");
+    ser_printf("CPU is %s 0x%04x: 0x%02x\n\n", writing ? "WRITING" : "READING", addr, data);
 
     while (ser_read(NULL));
 

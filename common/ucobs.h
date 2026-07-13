@@ -25,7 +25,7 @@
 /*
  * The memory used by the buffer and dest may be the same
  * Zero-framing must be ensured by caller
- * Buffer may not be longer than 254 bytes
+ * Data may not be longer than 254 bytes
  *
  * Parameters must not be null
  *
@@ -37,7 +37,7 @@ int ucobs_decode(uint8_t length, const uint8_t* data, uint8_t* dest);
 /*
  * The memory used by the buffer and dest may be the same
  * Zero-framing must be ensured by caller
- * Buffer may not be longer than 254 bytes
+ * Data may not be longer than 254 bytes
  *
  * Parameters must not be null
  *

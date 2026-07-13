@@ -4,7 +4,6 @@
 #include <stdint.h>
 #include <util/delay.h>
 
-
 static uint8_t bif_highz_databus(void);
 static uint8_t bif_highz_addrbus(void);
 static uint8_t bif_write_databus(uint8_t data);
@@ -252,11 +251,9 @@ uint8_t bif_mem_write(uint16_t addr, uint8_t data) {
   if (bif_set_dev_en(false)) return 1;
   if (bif_set_ext_clk_en(true)) return 1;
   if (bif_set_cpu_en(false)) return 1;
-  if (bif_set_ext_clk(io_LOW)) return 1;
+  if (bif_set_ext_clk(io_HIGH)) return 1;
 
   if (bif_write_addrbus(addr)) return 1;
-
-  if (bif_set_rw(false)) return 1;
 
   if (bif_write_databus(data)) return 1;
 

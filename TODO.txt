@@ -1,5 +1,5 @@
 Firmware:
 
-State caching mcp
-
+Speed up pin transactions
+Implement commands
 
