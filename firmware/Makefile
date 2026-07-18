@@ -7,13 +7,13 @@ OBJCOPY = avr-objcopy
 SRCS = \
 	src/main.c \
 	src/twi.c \
-	src/mcp23017.c \
+	src/io_expander.c \
 	src/serial.c \
 	src/cmd_handler.c \
 	src/utils.c \
 	src/io.c \
 	src/mcu_io.c \
-	src/io_defs.c \
+	src/io_pins.c \
 	src/bus_interface.c \
 
 COMMON_SRCS = \

@@ -1,5 +1,5 @@
-#ifndef PINS_H
-#define PINS_H
+#ifndef IO_PINS_H
+#define IO_PINS_H
 
 #include "io.h"
 

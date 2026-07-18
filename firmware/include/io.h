@@ -4,9 +4,9 @@
 #include <stdint.h>
 
 typedef enum {
-  io_UNDEFINED = -1,
-  io_HIGH,
-  io_LOW, 
+  iol_UNDEFINED = -1,
+  iol_HIGH,
+  iol_LOW, 
 } IOLevel;
 
 typedef enum {
@@ -35,6 +35,8 @@ typedef struct {
   const IOContext* context;
 } IOPin;
 
+uint8_t io_init(void);
+uint8_t io_flush(void);
 uint8_t io_write(IOPin* pin, IOLevel state);
 uint8_t io_read(IOPin* pin, IOLevel* state);
 uint8_t io_read_olat(IOPin* pin, IOLevel* state);

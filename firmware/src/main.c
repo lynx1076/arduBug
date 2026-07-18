@@ -7,27 +7,27 @@
 #include "utils.h"
 #include <avr/io.h>
 #include <avr/interrupt.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <util/delay.h>
 #include <stdbool.h>
 
-
-#define LED_PIN           PB5
-#define SET_LED(STATE)    PORTB = (PORTB & ~_BV(LED_PIN)) | ((STATE) << LED_PIN)
-#define TOGGLE_LED()      PORTB = PORTB ^ _BV(LED_PIN)
-#define LED_PERIOD        500
 
 uint8_t recv_buf[UCOBS_MAX_PACKET_LEN];
 uint16_t recv_index = 0;
 bool await_sync = true;
 
 int main(void) {
-  DDRB |= _BV(LED_PIN);
+  setup_led();
   
   twi_init();
   ser_init();
 
   sei();
+
+  if (io_init()) {
+    panic();
+  }
 
   ser_printf("Init %s\n\n", VERSION_TXT);
   
@@ -55,8 +55,11 @@ int main(void) {
 
   if (bif_set_dev_en(true)) reset();
   if (bif_set_ext_clk_en(true)) reset();
+  if (bif_set_ext_clk(iol_HIGH)) reset();
   if (bif_set_cpu_en(true)) reset();
-  if (bif_set_ext_clk(io_HIGH)) reset();
+  if (io_flush()) return 1;
+
+  ser_printf("Entering main loop\n");
 
   while (true) {
     uint8_t data;
@@ -82,10 +85,10 @@ int main(void) {
     if (!bus_owned) ser_printf("Bus is not owned\n");
     ser_printf("CPU is %s 0x%04x: 0x%02x\n\n", writing ? "WRITING" : "READING", addr, data);
 
-    while (ser_read(NULL));
+    if (bif_set_ext_clk(iol_LOW)) reset();
+    if (bif_set_ext_clk(iol_HIGH)) reset();
 
-    if (bif_set_ext_clk(io_LOW)) reset();
-    if (bif_set_ext_clk(io_HIGH)) reset();
+    while (ser_read(NULL));
   }
 
   /*

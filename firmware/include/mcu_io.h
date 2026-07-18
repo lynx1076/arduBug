@@ -36,16 +36,7 @@ typedef struct {
 
 extern const IOVtable mio_vtable;
 
-uint8_t mio_write_pin_iodir(const MIOContext* ctx, IOMode mode);
-uint8_t mio_write_pin(const MIOContext* ctx, IOLevel state);
-uint8_t mio_read_pin(const MIOContext* ctx, IOLevel* state);
-uint8_t mio_read_olat(const MIOContext* ctx, IOLevel* state);
-uint8_t mio_highz(const MIOContext* ctx);
-
-uint8_t mio_write_pin_iodir_w(const IOContext* ctx, IOMode mode);
-uint8_t mio_write_pin_w(const IOContext* ctx, IOLevel state);
-uint8_t mio_read_pin_w(const IOContext* ctx, IOLevel* state);
-uint8_t mio_read_olat_w(const IOContext* ctx, IOLevel* state);
-uint8_t mio_highz_w(const IOContext* ctx);
+uint8_t mio_init(void);
+uint8_t mio_flush(void);
 
 #endif
