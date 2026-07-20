@@ -25,20 +25,62 @@ int main(void) {
 
   sei();
 
+  ser_printf("Init %s\n\n", VERSION_TXT);
+
   if (io_init()) {
+    ser_printf("IO init failed\n");
     panic();
   }
-
-  ser_printf("Init %s\n\n", VERSION_TXT);
   
   const uint8_t test[] = {
     0x78,
     0xD8,
     0xA2, 0xFF,
     0x9A,
-    0xEE, 0x00, 0x02,
+    0xEE, 0x00, 0x04,
     0x4C, 0x05, 0x80
   };
+
+  uint8_t data[128];
+
+  for (uint8_t i = 0; i < 128; i++) {
+    data[i] = 0x69 + i % 16;
+  }
+
+  ser_printf("Start write...\n");
+  while (ser_read(NULL));
+  ser_write('a');
+  ser_write('\n');
+  if (bif_mem_bulk_write(0x0000, 128, data)) {
+    ser_printf("FAILED\n");
+  }
+  ser_write('z');
+  ser_write('\n');
+  ser_printf("Done\n");
+  while (ser_read(NULL));
+
+  for (uint8_t i = 0; i < 128; i++) {
+    data[i] = 0;
+  }
+
+  ser_printf("Start read...\n");
+  while (ser_read(NULL));
+  ser_write('a');
+  ser_write('\n');
+  if (bif_mem_bulk_read(0x0000, 128, data)) {
+    ser_printf("FAILED\n");
+  }
+  ser_write('z');
+  ser_write('\n');
+  ser_printf("Done\n");
+  while (ser_read(NULL));
+
+  for (uint8_t i = 0; i < 128; i++) {
+    ser_printf("%u: 0x%02x\n", i, data[i]);
+  }
+
+  ser_printf("Done\n");
+  while (ser_read(NULL));
 
   ser_printf("Flashing program\n");
   for (uint8_t i = 0; i < sizeof(test) / sizeof(*test); i++) {
@@ -53,11 +95,10 @@ int main(void) {
   if (bif_mem_write(0xfffd, 0x80)) reset();
   ser_printf("Done prog reset vec\n");
 
-  if (bif_set_dev_en(true)) reset();
-  if (bif_set_ext_clk_en(true)) reset();
-  if (bif_set_ext_clk(iol_HIGH)) reset();
-  if (bif_set_cpu_en(true)) reset();
-  if (io_flush()) return 1;
+  if (io_set_dev_en(true)) reset();
+  if (io_set_ext_clk_en(true)) reset();
+  io_set_ext_clk(HIGH);
+  if (io_set_cpu_en(true)) reset();
 
   ser_printf("Entering main loop\n");
 
@@ -65,30 +106,30 @@ int main(void) {
     uint8_t data;
     uint16_t addr;
 
-    if (bif_read_databus(&data)) reset();
-    if (bif_read_addrbus(&addr)) reset();
+    data = io_read_databus();
+    if (io_read_addrbus(&addr)) reset();
 
     bool writing;
-    if (bif_read_rw(&writing)) reset();
+    if (io_get_rw(&writing)) reset();
 
     bool bus_owned;
-    if (bif_read_dev_tbo(&bus_owned)) reset();
+    if (io_get_dev_tbo(&bus_owned)) reset();
 
     bool sync;
-    if (bif_read_sync(&sync)) reset();
+    if (io_get_sync(&sync)) reset();
 
     bool vp;
-    if (bif_read_vp(&vp)) reset();
+    if (io_get_vp(&vp)) reset();
 
     if (vp) ser_printf("Cpu is fetching vector\n");
     if (sync) ser_printf("Cpu is fetching opcode\n");
     if (!bus_owned) ser_printf("Bus is not owned\n");
     ser_printf("CPU is %s 0x%04x: 0x%02x\n\n", writing ? "WRITING" : "READING", addr, data);
 
-    if (bif_set_ext_clk(iol_LOW)) reset();
-    if (bif_set_ext_clk(iol_HIGH)) reset();
+    io_set_ext_clk(LOW);
+    io_set_ext_clk(HIGH);
 
-    while (ser_read(NULL));
+    while (ser_read(NULL) && sync);
   }
 
   /*

@@ -12,10 +12,10 @@ static volatile uint8_t head = 0;
 static volatile uint8_t tail = 0;
 
 void ser_init() {
-  uint16_t ubrr0_val = (F_CPU + 4UL * SER_BAUD_RATE) / (8UL * SER_BAUD_RATE) - 1;
+  uint16_t ubrr0_val = (16000000UL / (8UL * 500000UL)) - 1;
 
-  UBRR0H = ubrr0_val >> 8;
-  UBRR0L = ubrr0_val & 0xFF;
+  UBRR0H = (uint8_t)(ubrr0_val >> 8);
+  UBRR0L = (uint8_t)(ubrr0_val & 0xFF);
 
   UCSR0A |= _BV(U2X0);
   UCSR0C = _BV(UCSZ01) | _BV(UCSZ00);

@@ -15,7 +15,7 @@
 #define TWI_MR_DATA_ACK     0x50 // Data received, ACK returned
 #define TWI_MR_DATA_NACK    0x58 // Data received, NACK returned
 
-#define TWI_TIMEOUT_MS 200
+#define TWI_TIMEOUT_US      200
 
 #define TWI_PIN_SDA         PC4
 #define TWI_PIN_SCL         PC5
@@ -23,8 +23,8 @@
 static uint8_t twi_wait_twint(void) {
   uint16_t elapsed = 0;
   while (!(TWCR & _BV(TWINT))) {
-    _delay_ms(1);
-    if (elapsed++ >= TWI_TIMEOUT_MS) {
+    _delay_us(1);
+    if (elapsed++ >= TWI_TIMEOUT_US) {
       return 1;
     }
   }
@@ -33,7 +33,7 @@ static uint8_t twi_wait_twint(void) {
 }
 
 void twi_init(void) {
-  TWBR = ((F_CPU / TWI_BITRATE_HZ) - 16) / 2;
+  TWBR = 2;
   TWSR = 0x00;
   TWCR = _BV(TWEN);
 }
@@ -50,8 +50,8 @@ void twi_stop(void) {
   TWCR = _BV(TWINT) | _BV(TWEN) | _BV(TWSTO);
   uint16_t elapsed = 0;
   while (TWCR & _BV(TWSTO)) {
-    _delay_ms(1);
-    if (elapsed++ >= TWI_TIMEOUT_MS) {
+    _delay_us(1);
+    if (elapsed++ >= TWI_TIMEOUT_US) {
       uint8_t old_ddrc = DDRC;
       uint8_t old_portc = PORTC;
 
@@ -72,7 +72,7 @@ void twi_stop(void) {
       TWCR = _BV(TWINT) | _BV(TWEN) | _BV(TWSTO);
       uint16_t small_elapsed = 0;
       while (TWCR & _BV(TWSTO)) {
-        _delay_ms(1);
+        _delay_us(1);
         if (small_elapsed++ >= 10) break;
       }
       break;
