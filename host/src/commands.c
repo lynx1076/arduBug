@@ -1,13 +1,11 @@
 #include "commands.h"
-#include "cli.h"
 #include "result.h"
 #include "serial_protocol.h"
 #include "ucobs.h"
 #include "utils.h"
 #include "vector.h"
 #include "serial.h"
-#include "io.h"
-#include "pins.h"
+#include <asm-generic/errno.h>
 #include <stddef.h>
 #include <ncurses.h>
 #include <stdint.h>
@@ -17,14 +15,8 @@
 #include <string.h>
 
 
-#define FAIL_TO_NORMAL \
-  do { printw("Error: switching back to normal mode\n"); cmd_init_normal(0, NULL); return -1; } while (0)
-
 static Vec device_list = VEC_EMPTY;
 static ssize_t cycle = 0;
-
-static uint8_t ext_data = 0;
-static uint16_t ext_addr = 0;
 
 int cmd_help(size_t arg_cnt, const char **tokens) {
   (void)tokens;
@@ -126,7 +118,7 @@ int cmd_status(size_t arg_cnt, const char** tokens) {
   }
 
   if (ser_is_open()) {
-    printw("Connected to %s\n", ser_get_current_port());
+    printw("Connected to %s\n", ser_get_device());
   } else {
     printw("Not connected\n");
   }
@@ -145,7 +137,7 @@ int cmd_ping(size_t arg_cnt, const char** tokens) {
     RES_RETURN(r_EDEVICE, -1);
   }
 
-  printw("Pinging %s\n", ser_get_current_port());
+  printw("Pinging %s\n", ser_get_device());
 
   if (ser_enc_write_va(1, SP_CMD_PING)) return -1;
 
@@ -154,12 +146,8 @@ int cmd_ping(size_t arg_cnt, const char** tokens) {
   
   printw("Ping successful\n");
 
-  debug_log(log_INFO, "Read device compat code as %u", reply);
-
-  if (reply != SP_COMPAT_CODE) {
-    printw("Warning: serial protocol compat codes are not equal\n");
-    printw("Software compat code: %u", SP_COMPAT_CODE);
-    printw("Device compat code: %u", reply);
+  if (reply != SP_SIG_OK) {
+    printw("Ping failed: %u", reply);
   }
 
   RES_RETURN(r_ENONE, 0);
@@ -176,7 +164,7 @@ int cmd_version(size_t arg_cnt, const char** tokens) {
     RES_RETURN(r_EDEVICE, -1);
   }
 
-  printw("Getting version %s\n", ser_get_current_port());
+  printw("Getting version %s\n", ser_get_device());
 
   if (ser_enc_write_va(1, SP_CMD_VERSION_TEXT)) return -1;
   printw("Write ok\n");
@@ -185,13 +173,12 @@ int cmd_version(size_t arg_cnt, const char** tokens) {
   size_t reply_len;
   if (ser_enc_read(&reply_len, reply)) return -1;
   if (_res != r_DATA_READY) RES_RETURN(r_ENO_DATA, -1);
+
+  if (reply_len == 0) RES_RETURN(r_ENO_DATA, -1);
+
+  if (reply[0] != SP_SIG_OK) RES_RETURN(r_EDEVICE, -1);
   
-  if (reply_len > 0) {
-    printw("Version [%zu]: '%.*s'\n", reply_len, (int)reply_len, reply);
-  } else {
-    printw("Received empty packet\n");
-    RES_RETURN(r_ENO_DATA, -1);
-  }
+  printw("Version [%zu]: '%.*s'\n", reply_len - 1, (int)reply_len - 1, reply + 1);
 
   RES_RETURN(r_ENONE, 0);
 }
@@ -201,244 +188,33 @@ int cmd_show_debug_logs(size_t arg_cnt, const char** tokens) {
     RES_RETURN(r_EARGS, -1);
   }
 
-  if (strcmp(tokens[1], "true") == 0) {
+  bool enable;
+  if (parse_bool(tokens[1], &enable)) return -1;
+
+  if (enable) {
     dbg_log_to_user = true;
     debug_log(log_INFO, "Enabled logging to stdout");
     printw("Enabled logging to stdout\n");
-  } else if (strcmp(tokens[1], "false") == 0) {
+  } else {
     dbg_log_to_user = false;
     debug_log(log_INFO, "Disabled logging to stdout");
     printw("Disabled logging to stdout\n");
-  } else {
-    RES_RETURN(r_EPARSE, -1);
   }
 
   RES_RETURN(r_ENONE, 0);
 }
 
-int cmd_init_normal(size_t arg_cnt, const char **tokens) {
-  (void)tokens;
-
-  if (arg_cnt != 0) {
-    RES_RETURN(r_EARGS, -1);
-  }
-
-  cliState = CliState_Normal;
-  if (io_init()) return -1;
-
-  RES_RETURN(r_ENONE, 0);
-}
-
-int cmd_init_debug(size_t arg_cnt, const char** tokens) {
-  (void)tokens;
-
-  if (arg_cnt != 0) {
-    RES_RETURN(r_EARGS, -1);
-  }
-
-  cycle = 0;
-  cliState = CliState_Debug;
-
-  if (io_init()) FAIL_TO_NORMAL;
-  
-  if (io_write_pin(PINS_CTRL_PIN_EXT_CLK_EN, HIGH)) FAIL_TO_NORMAL;
-
-  if (io_write_pin(PINS_CTRL_PIN_EXT_CLK, LOW)) FAIL_TO_NORMAL;
-
-  debug_log(log_INFO, "Debugger initalized");
-  printw("Debugger initalized\n");
-
-  RES_RETURN(r_ENONE, 0);
-}
-
-int cmd_init_emulation(size_t arg_cnt, const char** tokens) {
-  (void)tokens;
-
-  if (arg_cnt != 0) {
-    RES_RETURN(r_EARGS, -1);
-  }
-
-  cycle = 0;
-  cliState = CliState_EmulateMemory;
-
-  if (io_init()) FAIL_TO_NORMAL;
-  
-  if (io_write_pin(PINS_CTRL_PIN_EXT_CLK_EN, HIGH)) FAIL_TO_NORMAL;
-
-  if (io_write_pin(PINS_CTRL_PIN_EXT_CLK, LOW)) FAIL_TO_NORMAL;
-
-  debug_log(log_INFO, "Emulator initalized");
-  printw("Emulator initalized\n");
-
-  RES_RETURN(r_ENONE, 0);
-}
-
-int cmd_init_override(size_t arg_cnt, const char **tokens) {
-  (void)tokens;
-
-  if (arg_cnt != 0) {
-    RES_RETURN(r_EARGS, -1);
-  }
-
-  cycle = 0;
-  cliState = CliState_Override;
-
-  if (io_init()) FAIL_TO_NORMAL;
-  
-  if (io_write_pin(PINS_CTRL_PIN_EXT_CLK_EN, HIGH)) FAIL_TO_NORMAL;
-
-  if (io_write_pin(PINS_CTRL_PIN_EXT_CLK, LOW)) FAIL_TO_NORMAL;
-  
-  if (io_write_pin(PINS_CTRL_PIN_EXT_RESETB, LOW)) FAIL_TO_NORMAL;
-
-  debug_log(log_INFO, "Override initalized");
-  printw("Override initalized\n");
-
-  RES_RETURN(r_ENONE, 0);
-}
-
-int cmd_step(size_t arg_cnt, const char** tokens) {
-  (void)tokens;
-
-  if (cliState != CliState_Debug && cliState != CliState_EmulateMemory) {
-    printw("Not in expected mode\n");
-    RES_RETURN(r_ENOT_INIT, -1);
-  }
-
-  if (arg_cnt != 0) {
-    RES_RETURN(r_EARGS, -1);
-  }
-
-  if (io_set_clock(HIGH)) FAIL_TO_NORMAL;
-
-  uint8_t databus;
-  uint16_t addrbus;
-  bool cpu_reading;
-
-  if (io_cpu_reading(&cpu_reading)) FAIL_TO_NORMAL;
-  
-  if (io_read_addrbus(&addrbus)) FAIL_TO_NORMAL;
-
-  if (cliState == CliState_EmulateMemory && cpu_reading) {
-    if (io_write_databus(ext_data)) FAIL_TO_NORMAL;
-    databus = ext_data;
-  } else {
-    if (io_read_databus(&databus)) FAIL_TO_NORMAL;
-  }
-
-  printw("\n");
-  printw("Cycle: %zi\n", cycle);
-
-  printw("CPU %s 0x%02x @ 0x%04x\n", cpu_reading ? "reading" : "writing", databus, addrbus);
-
-  if (io_set_clock(LOW)) FAIL_TO_NORMAL;
-
-  if (cliState == CliState_Debug || cliState == CliState_EmulateMemory) {
-    cycle++;
-  }
-
-  RES_RETURN(r_ENONE, 0);
-}
-
-int cmd_write(size_t arg_cnt, const char **tokens) {
-  if (cliState != CliState_Override) {
-    printw("Not in expected mode");
-    RES_RETURN(r_ENOT_INIT, -1);
-  }
-
-  if (arg_cnt >= 1) {
-    if (parse_hex_byte(tokens[1], &ext_data)) return -1;
-  }
-
-  if (arg_cnt >= 2) {
-    if (parse_hex_word(tokens[2], &ext_addr)) return -1;
-  }
-
-  if (arg_cnt > 2) {
-    RES_RETURN(r_EARGS, -1);
-  }
-
-  if (io_set_clock(LOW)) return -1;
-  if (io_write_pin(PINS_CTRL_PIN_EXT_RWB, LOW)) FAIL_TO_NORMAL;
-
-  if (io_write_addrbus(ext_addr)) FAIL_TO_NORMAL;
-  if (io_write_databus(ext_data)) FAIL_TO_NORMAL;
-
-  if (io_set_clock(HIGH)) FAIL_TO_NORMAL;
-
-  printw("System writing 0x%02x @ 0x%04x\n", ext_data, ext_addr);
-
-  if (io_set_clock(LOW)) return -1;
-
-  RES_RETURN(r_ENONE, -1);
-}
-
-int cmd_read(size_t arg_cnt, const char **tokens) {
-  if (cliState != CliState_Override) {
-    printw("Not in expected mode");
-    RES_RETURN(r_ENOT_INIT, -1);
-  }
-
-  if (arg_cnt == 1) {
-    if (parse_hex_word(tokens[1], &ext_addr)) return -1;
-  } else if (arg_cnt > 1) {
-    RES_RETURN(r_EARGS, -1);
-  }
-
-  if (io_set_clock(LOW)) return -1;
-
-  uint8_t databus;
-
-  if (io_write_pin(PINS_CTRL_PIN_EXT_RWB, HIGH)) FAIL_TO_NORMAL;
-
-  if (io_write_addrbus(ext_addr)) FAIL_TO_NORMAL;
-  if (io_set_clock(HIGH)) FAIL_TO_NORMAL;
-  if (io_read_databus(&databus)) FAIL_TO_NORMAL;
-
-  printw("System reading 0x%02x @ 0x%04x\n", databus, ext_addr);
-
-  if (io_set_clock(LOW)) return -1;
-
-  RES_RETURN(r_ENONE, -1);
-}
-
-int cmd_reset(size_t arg_cnt, const char **tokens) {
-  (void)tokens;
-
-  if (cliState != CliState_Debug && cliState != CliState_EmulateMemory) {
-    printw("Not in debug mode\n");
-    RES_RETURN(r_ENOT_INIT, -1);
-  }
-
-  if (arg_cnt != 0) {
-    RES_RETURN(r_EARGS, -1);
-  }
-
-  printw("Resetting...\n");
-
-  if (io_reset_seq()) FAIL_TO_NORMAL;
-
-  cycle = -8;
-
-  RES_RETURN(r_ENONE, 0);
-}
-
-int cmd_set_data(size_t arg_cnt, const char **tokens) {
+int cmd_ext_clock_en(size_t arg_cnt, const char** tokens) {
   if (arg_cnt != 1) RES_RETURN(r_EARGS, -1);
 
-  if (parse_hex_byte(tokens[1], &ext_data)) return -1;
+  if (!ser_is_open()) {
+    RES_RETURN(r_EDEVICE, -1);
+  }
 
-  printw("Data register set to 0x%02x\n", ext_data);
+  bool enable;
+  if (parse_bool(tokens[1], &enable)) return -1;
 
-  RES_RETURN(r_ENONE, 0);
-}
-
-int cmd_set_addr(size_t arg_cnt, const char** tokens) {
-  if (arg_cnt != 1) RES_RETURN(r_EARGS, -1);
-
-  if (parse_hex_word(tokens[1], &ext_addr)) return -1;
-
-  printw("Addr register set to 0x%04x\n", ext_addr);
+  printw("Successfully %s the external clock\n", enable ? "enabled" : "disabled");
 
   RES_RETURN(r_ENONE, 0);
 }

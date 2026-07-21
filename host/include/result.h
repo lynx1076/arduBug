@@ -8,6 +8,7 @@
   X(r_ENONE) \
   X(r_DATA_READY) \
   X(r_ENO_DATA) \
+  X(r_ENULL_PTR) \
   X(r_EENCODING) \
   X(r_EMEM) \
   X(r_ESYS) \
@@ -15,11 +16,12 @@
   X(r_EBOUNDS) \
   X(r_EARGS) \
   X(r_EDEVICE) \
+  X(r_EPAYLOAD_SIZE) \
   X(r_ENOT_INIT) \
   X(r_EDOUBLE_INIT) \
   X(r_ECMD) \
   X(r_EPARSE) \
-  X(r_EACCESS) \
+  X(r_EMISSING_DATA) \
 
 
 typedef enum {

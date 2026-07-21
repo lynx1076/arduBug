@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
+#include <sys/types.h>
 #include <time.h>
 #include <ncurses.h>
 
@@ -183,6 +184,18 @@ int parse_hex_word(const char* str, uint16_t* word) {
 	*word = (uint16_t)value;
 
 	RES_RETURN(r_ENONE, 0);
+}
+
+int parse_bool(const char* str, bool* val) {
+  if (strcmp(str, "true") == 0) *val = true;
+  else if (strcmp(str, "1") == 0) *val = true;
+  else if (strcmp(str, "false") == 0) *val = false;
+  else if (strcmp(str, "0") == 0) *val = false;
+  else {
+    RES_RETURN(r_EPARSE, -1);
+  }
+
+  RES_RETURN(r_ENONE, 0);
 }
 
 void print_hex(size_t len, const uint8_t* buf) {

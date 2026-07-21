@@ -11,8 +11,8 @@ static uint8_t ring_buf[SER_RX_BUF_SIZE];
 static volatile uint8_t head = 0;
 static volatile uint8_t tail = 0;
 
-void ser_init() {
-  uint16_t ubrr0_val = (16000000UL / (8UL * 500000UL)) - 1;
+void ser_init(void) {
+  uint16_t ubrr0_val = 16; 
 
   UBRR0H = (uint8_t)(ubrr0_val >> 8);
   UBRR0L = (uint8_t)(ubrr0_val & 0xFF);

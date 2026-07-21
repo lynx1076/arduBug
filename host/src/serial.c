@@ -3,6 +3,7 @@
 #include "result.h"
 #include "utils.h"
 #include "vector.h"
+#include <ncurses.h>
 #include <sched.h>
 #include <stdarg.h>
 #include <stddef.h>
@@ -14,13 +15,30 @@
 #include <dirent.h>
 #include <string.h>
 
-static int current_port_fd = -1;
-static char current_port[SERIAL_PORT_PATH_MAX] = {0};
+#define DEVICE_READY_DELAY_MS         2500
+#define READ_TIMEOUT_100MS            2
+
+static int device_fd = -1;
+static char device_path[SERIAL_PORT_PATH_MAX] = {0};
+static size_t device_open_time_ms = 0;
+static bool device_ready = false;
 
 static bool recv_sync = false;
 
 static uint8_t recv_buf[UCOBS_MAX_PACKET_LEN];
 static size_t recv_len = 0;
+
+int ser_update(void) {
+  if (!ser_is_open()) RES_RETURN(r_ENONE, 0);
+
+  bool _device_ready = device_open_time_ms + DEVICE_READY_DELAY_MS < millis();
+  if (_device_ready && !device_ready) {
+    device_ready = true;
+    printw("Device is now ready\n");
+  }
+
+  RES_RETURN(r_ENONE, 0);
+}
 
 int ser_scan_ports(Vec* return_vec) {
   if (vec_init(return_vec, SERIAL_PORT_PATH_MAX)) return -1;
@@ -101,37 +119,44 @@ int ser_open(char* path) {
     RES_RETURN(r_ESYS, -1);
   }
 
-  current_port_fd = fd;
-  snprintf(current_port, SERIAL_PORT_PATH_MAX, "%s", path);
+  device_fd = fd;
+  snprintf(device_path, SERIAL_PORT_PATH_MAX, "%s", path);
+
+  device_ready = false;
+  device_open_time_ms = millis();
 
   RES_RETURN(r_ENONE, 0);
 }
 
 void ser_close(void) {
-  close(current_port_fd);
-  current_port_fd = -1;
-  *current_port = '\0';
+  close(device_fd);
+  device_fd = -1;
+  *device_path = '\0';
   recv_sync = false;
 }
 
-char* ser_get_current_port(void) {
-  return current_port;
+char* ser_get_device(void) {
+  return device_path;
 }
 
 bool ser_is_open(void) {
-  if (*current_port != '\0' && access(current_port, F_OK) != 0) {
+  if (*device_path != '\0' && access(device_path, F_OK) != 0) {
     ser_close();
   }
 
-  return *current_port != '\0';
+  return *device_path != '\0';
 }
 
 int ser_write(size_t length, const uint8_t* data) {
   if (!ser_is_open()) {
-    RES_RETURN(r_EDEVICE, -1);
+    RES_RETURN(r_ESYS, -1);
   }
 
-  ssize_t result = write(current_port_fd, data, length);
+  if (!device_ready) {
+    RES_RETURN(r_ENOT_INIT, -1);
+  }
+
+  ssize_t result = write(device_fd, data, length);
 
   if (result <= 0 || (size_t)result != length) {
     ser_close();
@@ -142,8 +167,12 @@ int ser_write(size_t length, const uint8_t* data) {
 }
 
 int ser_read(size_t* length, uint8_t* data) {
-  if (current_port_fd < 0) {
+  if (!ser_is_open()) {
     RES_RETURN(r_ESYS, -1);
+  }
+
+  if (!device_ready) {
+    RES_RETURN(r_ENOT_INIT, -1);
   }
 
   if (data == NULL) {
@@ -154,13 +183,13 @@ int ser_read(size_t* length, uint8_t* data) {
     RES_RETURN(r_EARGS, -1);
   }
 
-  ssize_t read__res = read(current_port_fd, data, *length);
+  ssize_t read_res = read(device_fd, data, *length);
 
-  if (read__res < 0) {
+  if (read_res < 0) {
     ser_close();
     RES_RETURN(r_ESYS, -1);
-  } else if (read__res >= 1) {
-    *length = read__res;
+  } else if (read_res >= 1) {
+    *length = read_res;
     RES_RETURN(r_DATA_READY, 0);
   }
 
@@ -212,7 +241,28 @@ int ser_enc_read(size_t* length, uint8_t* data) {
   RES_RETURN(r_ENONE, 0);
 }
 
-int ser_enc_write_va(const size_t length, ...) {
+int ser_enc_write(size_t length, const uint8_t* data) {
+  if (data == NULL) RES_RETURN(r_ENULL_PTR, -1);
+  if (length > UCOBS_MAX_DATA_LEN) RES_RETURN(r_EPAYLOAD_SIZE, -1);
+
+  if (length == 0) RES_RETURN(r_ENONE, 0);
+
+  uint8_t buf[UCOBS_MAX_PACKET_LEN];
+
+  int encoded_len = ucobs_encode(length, data, buf + 1);
+  if (encoded_len < 0) RES_RETURN(r_EENCODING, -1);
+
+  buf[0] = 0x00;
+  buf[encoded_len + 1] = 0x00;
+
+  if (ser_write(encoded_len + UCOBS_LEN_FRAME, buf)) return -1;
+
+  RES_RETURN(r_ENONE, 0);
+}
+
+int ser_enc_write_va(size_t length, ...) {
+  if (length > UCOBS_MAX_DATA_LEN) RES_RETURN(r_EPAYLOAD_SIZE, -1);
+
   va_list va_args;
   uint8_t buf[UCOBS_MAX_PACKET_LEN];
 
@@ -235,7 +285,7 @@ int ser_enc_write_va(const size_t length, ...) {
   RES_RETURN(r_ENONE, 0);
 }
 
-int ser_enc_read_va(const size_t expected_length, ...) {
+int ser_enc_read_va(size_t expected_length, ...) {
   size_t read_length;
   uint8_t read_data[UCOBS_MAX_DATA_LEN];
 
@@ -247,7 +297,7 @@ int ser_enc_read_va(const size_t expected_length, ...) {
 
   va_start(va_args, expected_length);
 
-  for (size_t i = 0; i < expected_length; i++) {
+  for (size_t i = 0; i < read_length; i++) {
     *va_arg(va_args, uint8_t*) = read_data[i];
   }
 

@@ -1,7 +1,7 @@
 #include "result.h"
 #include <threads.h>
 
-result thread_local _res;
+thread_local result _res;
 
 char* res_get_string(result res) {
   switch (res) {

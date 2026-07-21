@@ -6,8 +6,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#define BOOL_CMP(A, B)          (!((A)^(B)))
-
 typedef enum {
   log_INFO,
   log_OK,
@@ -27,6 +25,7 @@ uint64_t millis(void);
 int parse_long(const char* str, long* val);
 int parse_hex_byte(const char* str, uint8_t* byte);
 int parse_hex_word(const char* str, uint16_t* word);
+int parse_bool(const char* str, bool* val);
 void print_hex(size_t len, const uint8_t* buf);
 void panic(char* msg);
 

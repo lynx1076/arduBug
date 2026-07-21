@@ -10,29 +10,36 @@
 #define SP_LOW                  0
 #define SP_HIGH                 1
 
-#define SP_INPUT                0
-#define SP_OUTPUT               1
+#define SP_STATE_ERROR          0
+#define SP_STATE_DEV_TBO        1
+#define SP_STATE_VP             2
+#define SP_STATE_SYNC           3
+#define SP_STATE_ML             4
+#define SP_STATE_WRITING        5
+#define SP_STATE_NMI            6
+#define SP_STATE_IRQ            7
 
-// CMD -> OK/ERR 0/1
-#define SP_CMD_GET_CPU_READING  0xC0
+// 0, TBO, VP, SYNC, ML, WRITING, NMI, IRQ
+#define SP_CMD_GET_CPU_STATE        0xC0
 
-// CMD 0/1 -> OK/ERR
-#define SP_CMD_SET_EXT_CLOCK_EN 0xC4
-// CMD 0/1 -> OK/ERR
-#define SP_CMD_SET_CLOCK_LEVEL  0xC5
+#define SP_CMD_SET_EXT_CLOCK_EN     0xC1
+#define SP_CMD_SET_EXT_CLOCK        0xC2
 
-// CMD -> OK/ERR 0x00-0xFF
-#define SP_CMD_READ_DATABUS     0xCA
-// CMD 0x00-0xFF -> OK/ERR
-#define SP_CMD_WRITE_DATABUS    0xCB
+#define SP_CMD_READ_DATABUS         0xC3
+#define SP_CMD_READ_ADDRBUS         0xC4
 
-// CMD -> OK/ERR 0x0000-0xFFFF
-#define SP_CMD_READ_ADDRBUS     0xCC
-// CMD 0x0000-0xFFFF -> OK/ERR
-#define SP_CMD_WRITE_ADDRBUS    0xCD
+#define SP_CMD_MEM_READ             0xC5
+#define SP_CMD_MEM_WRITE            0xC6
 
-#define SP_CMD_COMPAT_CODE      0xC8
-#define SP_CMD_VERSION_TEXT     0xC9
-#define SP_CMD_PING             0xCA
+#define SP_CMD_MEM_BULK_READ        0xC7
+#define SP_CMD_MEM_BULK_WRITE       0xC8
+
+#define SP_CMD_SET_RESET            0xC9
+
+#define SP_CMD_COMPAT_CODE          0xCA
+#define SP_CMD_VERSION_TEXT         0xCB
+#define SP_CMD_PING                 0xCC
+
+#define SP_CMD_SDP_DISABLE          0xCF
 
 #endif
