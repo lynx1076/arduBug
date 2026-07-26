@@ -14,18 +14,14 @@ typedef enum {
   log_WARN,
 } log_level;
 
+extern bool program_should_close;
 extern bool dbg_log_to_user;
 
 void debug_log(log_level ll, char* format, ...);
-void quit(int exit_code);
 void sleep_us(size_t microseconds);
 void sleep_ms(size_t milliseconds);
 uint64_t micros(void);
 uint64_t millis(void);
-int parse_long(const char* str, long* val);
-int parse_hex_byte(const char* str, uint8_t* byte);
-int parse_hex_word(const char* str, uint16_t* word);
-int parse_bool(const char* str, bool* val);
 void print_hex(size_t len, const uint8_t* buf);
 void panic(char* msg);
 

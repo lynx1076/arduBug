@@ -10,6 +10,7 @@
       "-D_POSIX_C_SOURCE=199309L",
       "-Iinclude",
       "-I../common",
+      "-Ilibs/microui/src",
       "-O3",
       "-c",
       "src/main.c",
@@ -30,6 +31,7 @@
       "-D_POSIX_C_SOURCE=199309L",
       "-Iinclude",
       "-I../common",
+      "-Ilibs/microui/src",
       "-O3",
       "-c",
       "src/vector.c",
@@ -50,6 +52,7 @@
       "-D_POSIX_C_SOURCE=199309L",
       "-Iinclude",
       "-I../common",
+      "-Ilibs/microui/src",
       "-O3",
       "-c",
       "src/serial.c",
@@ -70,6 +73,7 @@
       "-D_POSIX_C_SOURCE=199309L",
       "-Iinclude",
       "-I../common",
+      "-Ilibs/microui/src",
       "-O3",
       "-c",
       "src/utils.c",
@@ -90,6 +94,7 @@
       "-D_POSIX_C_SOURCE=199309L",
       "-Iinclude",
       "-I../common",
+      "-Ilibs/microui/src",
       "-O3",
       "-c",
       "src/result.c",
@@ -100,7 +105,7 @@
     "output": ".build/src/result.o"
   },
   {
-    "file": "src/commands.c",
+    "file": "src/io.c",
     "arguments": [
       "/usr/bin/gcc",
       "-Wall",
@@ -110,13 +115,98 @@
       "-D_POSIX_C_SOURCE=199309L",
       "-Iinclude",
       "-I../common",
+      "-Ilibs/microui/src",
       "-O3",
       "-c",
-      "src/commands.c",
+      "src/io.c",
       "-o",
-      ".build/src/commands.o"
+      ".build/src/io.o"
     ],
     "directory": "/home/lynx/arduBug/host",
-    "output": ".build/src/commands.o"
+    "output": ".build/src/io.o"
+  },
+  {
+    "file": "src/parse.c",
+    "arguments": [
+      "/usr/bin/gcc",
+      "-Wall",
+      "-Wextra",
+      "-std=c11",
+      "-D_GNU_SOURCE",
+      "-D_POSIX_C_SOURCE=199309L",
+      "-Iinclude",
+      "-I../common",
+      "-Ilibs/microui/src",
+      "-O3",
+      "-c",
+      "src/parse.c",
+      "-o",
+      ".build/src/parse.o"
+    ],
+    "directory": "/home/lynx/arduBug/host",
+    "output": ".build/src/parse.o"
+  },
+  {
+    "file": "src/gui.c",
+    "arguments": [
+      "/usr/bin/gcc",
+      "-Wall",
+      "-Wextra",
+      "-std=c11",
+      "-D_GNU_SOURCE",
+      "-D_POSIX_C_SOURCE=199309L",
+      "-Iinclude",
+      "-I../common",
+      "-Ilibs/microui/src",
+      "-O3",
+      "-c",
+      "src/gui.c",
+      "-o",
+      ".build/src/gui.o"
+    ],
+    "directory": "/home/lynx/arduBug/host",
+    "output": ".build/src/gui.o"
+  },
+  {
+    "file": "libs/microui/src/microui.c",
+    "arguments": [
+      "/usr/bin/gcc",
+      "-Wall",
+      "-Wextra",
+      "-std=c11",
+      "-D_GNU_SOURCE",
+      "-D_POSIX_C_SOURCE=199309L",
+      "-Iinclude",
+      "-I../common",
+      "-Ilibs/microui/src",
+      "-O3",
+      "-c",
+      "libs/microui/src/microui.c",
+      "-o",
+      ".build/libs/microui/src/microui.o"
+    ],
+    "directory": "/home/lynx/arduBug/host",
+    "output": ".build/libs/microui/src/microui.o"
+  },
+  {
+    "file": "../common/ucobs.c",
+    "arguments": [
+      "/usr/bin/gcc",
+      "-Wall",
+      "-Wextra",
+      "-std=c11",
+      "-D_GNU_SOURCE",
+      "-D_POSIX_C_SOURCE=199309L",
+      "-Iinclude",
+      "-I../common",
+      "-Ilibs/microui/src",
+      "-O3",
+      "-c",
+      "../common/ucobs.c",
+      "-o",
+      ".build/common/ucobs.o"
+    ],
+    "directory": "/home/lynx/arduBug/host",
+    "output": ".build/common/ucobs.o"
   }
 ]

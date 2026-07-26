@@ -1,8 +1,11 @@
 #include "serial.h"
+#include "gui.h"
+#include "device.h"
 #include "ucobs.h"
 #include "result.h"
 #include "utils.h"
 #include "vector.h"
+#include <raylib.h>
 #include <ncurses.h>
 #include <sched.h>
 #include <stdarg.h>
@@ -16,17 +19,13 @@
 #include <string.h>
 
 #define DEVICE_READY_DELAY_MS         2500
-#define READ_TIMEOUT_100MS            2
+#define RECV_TIMEOUT_MS               100
+#define READ_TIMEOUT_100MS            1
 
 static int device_fd = -1;
 static char device_path[SERIAL_PORT_PATH_MAX] = {0};
 static size_t device_open_time_ms = 0;
 static bool device_ready = false;
-
-static bool recv_sync = false;
-
-static uint8_t recv_buf[UCOBS_MAX_PACKET_LEN];
-static size_t recv_len = 0;
 
 int ser_update(void) {
   if (!ser_is_open()) RES_RETURN(r_ENONE, 0);
@@ -34,7 +33,14 @@ int ser_update(void) {
   bool _device_ready = device_open_time_ms + DEVICE_READY_DELAY_MS < millis();
   if (_device_ready && !device_ready) {
     device_ready = true;
-    printw("Device is now ready\n");
+    if (dev_init()) {
+      ser_close();
+      gui_log(TextFormat("Failed to init device: %s", res_get_string(_res)));
+      device_ready = false;
+      return -1;
+    }
+
+    gui_log("Device initialized");
   }
 
   RES_RETURN(r_ENONE, 0);
@@ -132,7 +138,6 @@ void ser_close(void) {
   close(device_fd);
   device_fd = -1;
   *device_path = '\0';
-  recv_sync = false;
 }
 
 char* ser_get_device(void) {
@@ -145,6 +150,10 @@ bool ser_is_open(void) {
   }
 
   return *device_path != '\0';
+}
+
+bool ser_is_ready(void) {
+  return device_ready;
 }
 
 int ser_write(size_t length, const uint8_t* data) {
@@ -190,6 +199,7 @@ int ser_read(size_t* length, uint8_t* data) {
     RES_RETURN(r_ESYS, -1);
   } else if (read_res >= 1) {
     *length = read_res;
+
     RES_RETURN(r_DATA_READY, 0);
   }
 
@@ -197,48 +207,45 @@ int ser_read(size_t* length, uint8_t* data) {
 }
 
 int ser_enc_read(size_t* length, uint8_t* data) {
-	size_t free_space = UCOBS_MAX_PACKET_LEN - recv_len;
+  size_t i = 0;
+  uint32_t last_byte_time = millis();
+  bool recv_sync = false;
 
-	if (free_space == 0) return r_EENCODING;
+  while (i < UCOBS_MAX_PACKET_LEN) {
+    if (millis() - last_byte_time >= RECV_TIMEOUT_MS) {
+      RES_RETURN(r_ENO_DATA, -1);
+    }
 
-	size_t bytes_read = free_space;
-	if (ser_read(&bytes_read, recv_buf + recv_len)) return -1;
-  if (_res != r_DATA_READY) RES_RETURN(r_ENO_DATA, -1);
+    size_t bytes_to_read = 1;
+    if (ser_read(&bytes_to_read, data + i)) {
+      return -1; 
+    }
 
-	recv_len += bytes_read;
+    if (bytes_to_read == 0) {
+      continue;
+    }
 
-	size_t i = 0;
-	while (i < recv_len) {
-		if (recv_buf[i] != 0x00) {
-			i++;
-			continue;
-		}
+    last_byte_time = millis();
 
-		if (!recv_sync || i == 0) {
-			recv_sync = true;
-			size_t remaining = recv_len - i - 1;
-			memmove(recv_buf,	recv_buf + i + 1, remaining);
-			recv_len = remaining;
-			i = 0;
+    if (data[i] == 0x00) {
+      if (recv_sync) {
+        int decoded = ucobs_decode(i - 1, data + 1, data);
+        
+        if (decoded < 0) {
+          RES_RETURN(r_EENCODING, -1);
+        }
 
-			continue;
-		}
+        *length = decoded;
+        RES_RETURN(r_DATA_READY, 0);
+      } else {
+        recv_sync = true;
+      }
+    }
 
-		int decoded = ucobs_decode(i, recv_buf, data);
-		size_t remaining = recv_len - i - 1;
-		memmove(recv_buf, recv_buf + i + 1, remaining);
-		recv_len = remaining;
+    i++;
+  }
 
-		if (decoded < 0) {
-			recv_sync = false;
-      RES_RETURN(r_EENCODING, -1);
-		}
-
-		*length = decoded;
-    RES_RETURN(r_DATA_READY, 0);
-	}
-
-  RES_RETURN(r_ENONE, 0);
+  RES_RETURN(r_ETIMEOUT, -1);
 }
 
 int ser_enc_write(size_t length, const uint8_t* data) {
@@ -291,7 +298,6 @@ int ser_enc_read_va(size_t expected_length, ...) {
 
   if (ser_enc_read(&read_length, read_data)) return -1;
   if (_res != r_DATA_READY) RES_RETURN(r_ENO_DATA, -1);
-  if (read_length != expected_length) return r_EDEVICE;
 
   va_list va_args;
 
@@ -302,6 +308,8 @@ int ser_enc_read_va(size_t expected_length, ...) {
   }
 
   va_end(va_args);
+
+  if (read_length != expected_length) RES_RETURN(r_EMISSING_DATA, read_length);
 
   RES_RETURN(r_ENONE, 0);
 }

@@ -1,47 +1,41 @@
-#include "cli.h"
+#include "gui.h"
 #include "result.h"
-#include "utils.h"
 #include "serial.h"
-#include <stdbool.h>
+#include "utils.h"
+#include <microui.h>
+#include <raylib.h>
 #include <stddef.h>
-#include <stdint.h>
-#include <unistd.h>
-#include <ncurses.h>
+
 
 int main(int argc, char* argv[]) {
   (void)argc;
   (void)argv;
 
-  debug_log(log_INFO, "Initializing ncurses");
+  debug_log(log_INFO, "Initializing");
 
-  initscr();
-  cbreak();
-  echo();
-  scrollok(stdscr, true);
-
-  size_t timer = millis();
+  if (gui_init()) goto EXIT;
 
   while (true) {
-    if (cli_update()) {
-      if (_res == r_EMEM || _res == r_ESYS) {
-        debug_log(log_CRIT, "Cannot recover from %s - Exiting", res_get_string(_res));
-      }
-    }
-
-    if (timer + 1000 < millis()) {
-      timer = millis();
-      print("A");
-    }
-    
     if (ser_update()) {
       if (_res == r_EMEM || _res == r_ESYS) {
         debug_log(log_CRIT, "Cannot recover from %s - Exiting", res_get_string(_res));
+        goto EXIT;
       }
     }
 
-    sleep_ms(10);
+    if (WindowShouldClose()) break;
+    
+    if (gui_update()) goto EXIT;
+
+    if (program_should_close) {
+      _res = r_ENONE;
+      break;
+    }
   }
-  
-  quit(_res);
+
+EXIT:
+  gui_close();
+
+  return _res;
 }
 

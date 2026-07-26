@@ -24,32 +24,29 @@ typedef struct {
 int vec_init(Vec* vec, unsigned int elSize);
 
 /**
- * Return true if vector memory is not null
- */
-bool vec_is_init(Vec* vec);
-
-/**
  * Free the vector object
  */
 void vec_free(Vec* vec);
 
 /**
- * Double the capacity of the vector if insufficient
- * Half the capacity if the element count is less than half the capacity
- */
-int vec_update_capacity(Vec* vec);
-
-/**
  * Add the element onto the back of the vector
- * If the capacity is insufficient to support another element, the capacity updating funciton is called
  */
 int vec_push(Vec* vec, void* el);
 
 /**
+ * Add the element at the index and shift all other data
+ */
+int vec_push_to(Vec* vec, size_t index, void* el);
+
+/**
  * Remove the element at the back of the vector
- * The capacity updating funciton is called afterwards
  */
 int vec_pop(Vec* vec, void* el);
+
+/**
+ * Remove the element at the index and shift all other data
+ */
+int vec_pop_at(Vec* vec, size_t index, void* el);
 
 /**
  * Get a pointer to the element at the index

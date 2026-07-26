@@ -1,5 +1,1 @@
-Firmware:
-
-Speed up pin transactions
-Implement commands
-
+Pull-Up on RWB

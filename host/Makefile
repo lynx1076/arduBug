@@ -1,4 +1,5 @@
 BUILD_DIR = .build
+RES_DIR = res
 
 TARGET = arduBug-cli
 TARGET_ELF = $(BUILD_DIR)/$(TARGET)
@@ -20,16 +21,21 @@ SRCS = \
 	src/serial.c \
 	src/utils.c \
 	src/result.c \
+	src/device.c \
+	src/parse.c \
+	src/gui.c \
 	src/commands.c \
-	src/io.c \
-	src/cli.c \
+	libs/microui/src/microui.c \
+	src/rmu.c \
 
 COMMON_SRCS = \
 	../common/ucobs.c
 
 INCLUDES = \
 	include \
-	../common
+	../common \
+	libs/microui/src \
+
 
 CFLAGS = \
 	-Wall \
@@ -41,13 +47,14 @@ CFLAGS = \
 	$(OPT_FLAG) \
 	$(DEBUG_FLAGS)
 
-LDFLAGS = \
-	-lncurses \
+LDFLAGS = -lraylib -lGL -lm -lpthread -ldl -lrt -lX11
 
 OBJS = $(SRCS:%.c=$(BUILD_DIR)/%.o)
 OBJS += $(patsubst ../common/%.c,$(BUILD_DIR)/common/%.o,$(COMMON_SRCS))
 
 all: $(TARGET_ELF)
+	rm -rf $(BUILD_DIR)/$(RES_DIR)
+	cp -ra $(RES_DIR) $(BUILD_DIR)/
 ifeq ($(DEBUG), 1)
 	@echo "Compiling with debug symbols"
 endif

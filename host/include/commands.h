@@ -3,17 +3,25 @@
 
 #include <stddef.h>
 
+int cmd_execute(char* cmd);
+
 #define COMMANDS \
   X(cmd_help, "help", "h") \
   X(cmd_quit, "quit", "q") \
   X(cmd_scan_devices, "scan", "s") \
   X(cmd_connect, "connect", "c") \
-  X(cmd_disconnect, "disconnect", "disc") \
-  X(cmd_status, "status", "") \
+  X(cmd_disconnect, "disconnect", "dis") \
+  X(cmd_status, "status", "st") \
   X(cmd_ping, "ping", "p") \
   X(cmd_version, "version", "v") \
-  X(cmd_show_debug_logs, "logs", "") \
+  X(cmd_show_debug_logs, "logs", "log") \
+  X(cmd_clear_gui_logs, "clear", "cl") \
   X(cmd_ext_clock_en, "clke", "ce") \
+  X(cmd_read_bus_state, "rbus", "rb") \
+  X(cmd_step_clock, "cstep", "cs") \
+  X(cmd_step_instruction, "step", "stp") \
+  X(cmd_mem_read, "read", "r") \
+  X(cmd_mem_write, "write", "w") \
 
 #define X(CMD, NAME, ALT) \
   int CMD(size_t arg_cnt, const char** tokens);
