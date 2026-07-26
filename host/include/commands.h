@@ -20,6 +20,7 @@ int cmd_execute(char* cmd);
   X(cmd_read_bus_state, "rbus", "rb") \
   X(cmd_step_clock, "cstep", "cs") \
   X(cmd_step_instruction, "step", "stp") \
+  X(cmd_reset_cpu, "reset", "rs") \
   X(cmd_mem_read, "read", "r") \
   X(cmd_mem_write, "write", "w") \
 

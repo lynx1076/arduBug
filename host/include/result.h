@@ -19,6 +19,7 @@
   X(r_EDEVICE) \
   X(r_EPAYLOAD_SIZE) \
   X(r_ENOT_INIT) \
+  X(r_ENOT_CONNECTED) \
   X(r_EDOUBLE_INIT) \
   X(r_EINVALID_CMD) \
   X(r_EPARSE) \

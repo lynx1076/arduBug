@@ -99,25 +99,29 @@ static int handle_gui_content(void) {
     
     if (!dev_get_cpu_en()) {
       mu_label(&ctx, "CPU is not enabled");
-    } else if (dev_get_cpu_state(&state) | dev_read_databus(&data) | dev_read_addrbus(&addr)) {
-      mu_label(&ctx, TextFormat("Unable to get bus state: %s", res_get_string(_res)));
+    } else if (dev_get_ext_clk_en()) {
+      if (dev_get_cpu_state(&state) | dev_read_databus(&data) | dev_read_addrbus(&addr)) {
+        mu_label(&ctx, TextFormat("Unable to get bus state: %s", res_get_string(_res)));
+      } else {
+        bool tbo = state & (1 << SP_STATE_DEV_TBO);
+        bool irq = state & (1 << SP_STATE_IRQ);
+        bool nmi = state & (1 << SP_STATE_NMI);
+        bool ml = state & (1 << SP_STATE_ML);
+        bool vp = state & (1 << SP_STATE_VP);
+        bool cpu_sync = state & (1 << SP_STATE_SYNC);
+        bool writing = state & (1 << SP_STATE_WRITING);
+
+        mu_label(&ctx, TextFormat("Cpu is %s 0x%02x at 0x%04x", writing ? "writing" : "reading", data, addr));
+
+        mu_label(&ctx, TextFormat("Bus is%s owned", tbo ? "" : " not"));
+        if (cpu_sync) mu_label(&ctx, TextFormat("CPU is fetching an opcode"));
+        if (vp) mu_label(&ctx, TextFormat("CPU is fetching a vector"));
+        if (ml) mu_label(&ctx, TextFormat("CPU has locked the memory"));
+        if (irq) mu_label(&ctx, "IRQ is active");
+        if (nmi) mu_label(&ctx, "NMI is active");
+      }
     } else {
-      bool tbo = state & (1 << SP_STATE_DEV_TBO);
-      bool irq = state & (1 << SP_STATE_IRQ);
-      bool nmi = state & (1 << SP_STATE_NMI);
-      bool ml = state & (1 << SP_STATE_ML);
-      bool vp = state & (1 << SP_STATE_VP);
-      bool cpu_sync = state & (1 << SP_STATE_SYNC);
-      bool writing = state & (1 << SP_STATE_WRITING);
-
-      mu_label(&ctx, TextFormat("Cpu is %s 0x%02x at 0x%04x", writing ? "writing" : "reading", data, addr));
-
-      mu_label(&ctx, TextFormat("Bus is%s owned", tbo ? "" : " not"));
-      if (cpu_sync) mu_label(&ctx, TextFormat("CPU is fetching an opcode"));
-      if (vp) mu_label(&ctx, TextFormat("CPU is fetching a vector"));
-      if (ml) mu_label(&ctx, TextFormat("CPU has locked the memory"));
-      if (irq) mu_label(&ctx, "IRQ is active");
-      if (nmi) mu_label(&ctx, "NMI is active");
+      mu_label(&ctx, "Internal clock active");
     }
   } else {
     mu_label(&ctx, "Device is not ready");

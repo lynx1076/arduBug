@@ -166,27 +166,13 @@ int cmd_status(size_t arg_cnt, const char** tokens) {
 
 int cmd_ping(size_t arg_cnt, const char** tokens) {
   (void)tokens;
-
-  if (arg_cnt != 0) {
-    RES_RETURN(r_EARGS, -1);
-  }
-
-  if (!ser_is_open()) {
-    RES_RETURN(r_EDEVICE, -1);
-  }
+  (void)arg_cnt;
 
   gui_log(TextFormat("Pinging %s\n", ser_get_device()));
 
-  if (ser_enc_write_va(1, SP_CMD_PING)) return -1;
+  if (dev_ping()) return -1;
 
-  uint8_t reply;
-  if (ser_enc_read_va(1, &reply)) return -1;
-  
-  gui_log(TextFormat("Ping successful\n"));
-
-  if (reply != SP_SIG_OK) {
-    gui_log(TextFormat("Ping failed: %u", reply));
-  }
+  gui_log("Success");
 
   RES_RETURN(r_ENONE, 0);
 }
@@ -253,15 +239,15 @@ int cmd_clear_gui_logs(size_t arg_cnt, const char** tokens) {
 int cmd_ext_clock_en(size_t arg_cnt, const char** tokens) {
   if (arg_cnt != 1) RES_RETURN(r_EARGS, -1);
 
-  if (!ser_is_open()) {
-    RES_RETURN(r_EDEVICE, -1);
-  }
-
   bool enable;
   if (parse_bool(tokens[1], &enable)) return -1;
-  dbg_log_to_user = enable;
 
-  gui_log(TextFormat("Successfully %s the external clock\n", enable ? "enabled" : "disabled"));
+  if (dev_set_ext_clk_en(enable)) {
+    gui_log("Failed to set the external clock enable\n");
+    return -1;
+  } else {
+    gui_log(TextFormat("Successfully %s the external clock\n", enable ? "enabled" : "disabled"));
+  }
 
   RES_RETURN(r_ENONE, 0);
 }
@@ -269,10 +255,6 @@ int cmd_ext_clock_en(size_t arg_cnt, const char** tokens) {
 int cmd_read_bus_state(size_t arg_cnt, const char** tokens) {
   (void)arg_cnt;
   (void)tokens;
-
-  if (!ser_is_open()) {
-    RES_RETURN(r_EDEVICE, -1);
-  }
 
   if (dev_print_bus_state()) return -1;
 
@@ -307,6 +289,17 @@ int cmd_step_clock(size_t arg_cnt, const char** tokens) {
   }
 
   if (dev_print_bus_state()) return -1;
+
+  RES_RETURN(r_ENONE, 0);
+}
+
+int cmd_reset_cpu(size_t arg_cnt, const char** tokens) {
+  (void)arg_cnt;
+  (void)tokens;
+  
+  if (dev_reset_cpu()) return -1;
+
+  gui_log("Successfully reset CPU");
 
   RES_RETURN(r_ENONE, 0);
 }

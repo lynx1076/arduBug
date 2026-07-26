@@ -18,29 +18,35 @@
 #include <dirent.h>
 #include <string.h>
 
-#define DEVICE_READY_DELAY_MS         2500
-#define RECV_TIMEOUT_MS               1000000
+#define DEVICE_READY_TIMEOUT_MS       2500
+#define RECV_TIMEOUT_MS               100
 #define READ_TIMEOUT_100MS            1
 
 static int device_fd = -1;
 static char device_path[SERIAL_PORT_PATH_MAX] = {0};
-static size_t device_open_time_ms = 0;
+static size_t device_open_timer_ms = 0;
 static bool device_ready = false;
 
 int ser_update(void) {
   if (!ser_is_open()) RES_RETURN(r_ENONE, 0);
 
-  bool _device_ready = device_open_time_ms + DEVICE_READY_DELAY_MS < millis();
-  if (_device_ready && !device_ready) {
-    device_ready = true;
-    if (dev_init()) {
+  if (!device_ready) {
+    if (!dev_ping()) {
+      device_ready = true;
+      if (dev_init()) {
+        ser_close();
+        gui_log(TextFormat("Failed to init device: %s", res_get_string(_res)));
+        device_ready = false;
+        return -1;
+      }
+
+      gui_log("Device initialized");
+    } else if (millis() - device_open_timer_ms > DEVICE_READY_TIMEOUT_MS) {
       ser_close();
       gui_log(TextFormat("Failed to init device: %s", res_get_string(_res)));
       device_ready = false;
-      return -1;
+      RES_RETURN(r_ETIMEOUT, -1);
     }
-
-    gui_log("Device initialized");
   }
 
   RES_RETURN(r_ENONE, 0);
@@ -129,7 +135,7 @@ int ser_open(char* path) {
   snprintf(device_path, SERIAL_PORT_PATH_MAX, "%s", path);
 
   device_ready = false;
-  device_open_time_ms = millis();
+  device_open_timer_ms = millis();
 
   RES_RETURN(r_ENONE, 0);
 }
@@ -158,11 +164,7 @@ bool ser_is_ready(void) {
 
 int ser_write(size_t length, const uint8_t* data) {
   if (!ser_is_open()) {
-    RES_RETURN(r_ESYS, -1);
-  }
-
-  if (!device_ready) {
-    RES_RETURN(r_ENOT_INIT, -1);
+    RES_RETURN(r_ENOT_CONNECTED, -1);
   }
 
   ssize_t result = write(device_fd, data, length);
@@ -172,16 +174,18 @@ int ser_write(size_t length, const uint8_t* data) {
     RES_RETURN(r_ESYS, -1);
   }
 
+#ifdef DEBUG
+  for (size_t i = 0; i < length; i++) {
+    printf("Write 0x%02x\n", data[i]);
+  }
+#endif
+
   RES_RETURN(r_ENONE, 0);
 }
 
 int ser_read(size_t* length, uint8_t* data) {
   if (!ser_is_open()) {
-    RES_RETURN(r_ESYS, -1);
-  }
-
-  if (!device_ready) {
-    RES_RETURN(r_ENOT_INIT, -1);
+    RES_RETURN(r_ENOT_CONNECTED, -1);
   }
 
   if (data == NULL) {
@@ -202,6 +206,12 @@ int ser_read(size_t* length, uint8_t* data) {
 
     RES_RETURN(r_DATA_READY, 0);
   }
+
+#ifdef DEBUG
+  for (size_t i = 0; i < *length; i++) {
+    printf("Read 0x%02x\n", data[i]);
+  }
+#endif
 
   RES_RETURN(r_ENONE, 0);
 }

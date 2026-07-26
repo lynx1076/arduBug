@@ -5,11 +5,11 @@ TARGET = arduBug-cli
 TARGET_ELF = $(BUILD_DIR)/$(TARGET)
 
 DEBUG ?= 0
-DEBUG_FLAGS =
+DEBUG_FLAGS = 
 OPT_FLAG = -O3
 
 ifeq ($(DEBUG), 1)
-	DEBUG_FLAGS = -g3 -fno-omit-frame-pointer
+	DEBUG_FLAGS = -g3 -fno-omit-frame-pointer -DDEBUG
 	OPT_FLAG = -O0
 endif
 
