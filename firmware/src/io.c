@@ -54,7 +54,6 @@ uint8_t io_set_cpu_en(bool enable) {
     if (io_set_reset(false)) return 1;
   } else {
     if (io_set_ext_clk_en(true)) return 1;
-    io_set_ext_clk(LOW);
   }
 
   if (iox_set_pin(IOX1_ADDR, IOX_IODIRA, PIN_EXT_CPU_EN, IOX_OUTPUT)) return 1;

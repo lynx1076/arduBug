@@ -6,6 +6,23 @@
 #include <stdlib.h>
 #include <stdint.h>
 
+
+#define EEPROM_PAGE_SIZE    64
+#define TIMEOUT_WRITE_US    10000
+
+static uint8_t await_write_success(uint8_t data) {
+  uint16_t timeout = 0;
+  while (timeout < TIMEOUT_WRITE_US) {
+    uint8_t read_back = io_read_databus();
+    if (read_back == data) break;
+    timeout++;
+    _delay_us(1);
+  }
+  if (timeout >= TIMEOUT_WRITE_US) return 1;
+
+  return 0;
+}
+
 uint8_t bif_mem_read(uint16_t addr, uint8_t* data) {
   if (io_set_dev_en(false)) return 1;
   if (io_set_ext_clk_en(true)) return 1;
@@ -44,9 +61,10 @@ uint8_t bif_mem_write(uint16_t addr, uint8_t data) {
   if (io_set_rw(true)) return 1;
 
   if (io_set_dev_en(true)) return 1;
-  if (io_set_dev_en(false)) return 1;
 
   if (io_set_rw(false)) return 1;
+
+  if (await_write_success(data)) return 1;
 
   return 0;
 }
@@ -114,6 +132,10 @@ uint8_t bif_mem_bulk_write(uint16_t base_addr, uint8_t length, uint8_t* data) {
 
     io_set_ext_clk(HIGH);
     io_set_ext_clk(LOW);
+
+    if (i & (i % 64 == 0)) {
+      if (await_write_success(data[i])) return 1;
+    }
   }
 
   return 0;

@@ -22,6 +22,13 @@ uint8_t cmd_exec(uint8_t len, const uint8_t* cmd, uint8_t* resp) {
 
       return 2;
     }
+    case SP_CMD_SET_CPU_EN: {
+      if (arg_cnt != 1) break;
+      if (io_set_cpu_en(args[0])) break;
+      
+      resp[0] = SP_SIG_OK;
+      return 1;
+    }
     case SP_CMD_SET_EXT_CLOCK_EN: {
       if (arg_cnt != 1) break;
       if (io_set_ext_clk_en(args[0])) break;
