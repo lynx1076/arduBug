@@ -3,6 +3,7 @@
 #include "serial_protocol.h"
 #include "result.h"
 #include "gui.h"
+#include "ucobs.h"
 #include <raylib.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -226,6 +227,32 @@ int dev_mem_write(uint16_t addr, uint8_t data) {
   if (ser_enc_read_va(1, &return_code)) return -1;
 
   if (return_code != SP_SIG_OK) RES_RETURN(r_EDEVICE, -1);
+
+  if (dev_set_cpu_en(_cpu_en)) return -1;
+
+  RES_RETURN(r_ENONE, 0);
+}
+
+int dev_mem_bulk_read(uint16_t addr, uint8_t count, uint8_t* data) {
+  if (!ser_is_ready()) RES_RETURN(r_EDEVICE, -1);
+  if (data == NULL) RES_RETURN(r_ENULL_PTR, -1);
+
+  bool _cpu_en = cpu_en;
+ 
+  uint8_t hb = addr >> 8;
+  uint8_t lb = addr & 0xFF;
+
+  cpu_en = false;
+
+  if (ser_enc_write_va(4, SP_CMD_MEM_BULK_READ, lb, hb, count)) RES_RETURN(r_EDEVICE, -1);
+
+  uint8_t reply_len = count + 3;
+  uint8_t reply[UCOBS_MAX_DATA_LEN];
+  if (ser_enc_read(&reply_len, reply)) return -1;
+
+  uint8_t return_code = reply[0];
+  if (return_code != SP_SIG_OK) RES_RETURN(r_EDEVICE, -1);
+  memcpy(data, reply + 1, count);
 
   if (dev_set_cpu_en(_cpu_en)) return -1;
 

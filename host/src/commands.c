@@ -1,4 +1,5 @@
 #include "commands.h"
+#include "common.h"
 #include "device.h"
 #include "device.h"
 #include "result.h"
@@ -206,7 +207,7 @@ int cmd_version(size_t arg_cnt, const char** tokens) {
   if (ser_enc_write_va(1, SP_CMD_VERSION_TEXT)) return -1;
 
   uint8_t reply[UCOBS_MAX_PACKET_LEN_NO_FRAME];
-  size_t reply_len;
+  uint8_t reply_len = UCOBS_MAX_DATA_LEN;
   if (ser_enc_read(&reply_len, reply)) return -1;
   if (_res != r_DATA_READY) RES_RETURN(r_ENO_DATA, -1);
 
@@ -343,15 +344,34 @@ int cmd_step_instruction(size_t arg_cnt, const char** tokens) {
 }
 
 int cmd_mem_read(size_t arg_cnt, const char** tokens) {
-  if (arg_cnt != 1) RES_RETURN(r_EARGS, -1);
+  long count = 1;
+  if (arg_cnt != 1) {
+    if (arg_cnt == 2) {
+      count = -1;
+    } else {
+      RES_RETURN(r_EARGS, -1);
+    }
+  }
 
   uint16_t addr;
   if (parse_hex_word(tokens[1], &addr)) return -1;
 
-  uint8_t data;
-  if (dev_mem_read(addr, &data)) return -1;
+  if (count < 0) {
+    if (parse_long(tokens[2], &count)) return -1;
+  }
 
-  gui_log(TextFormat("0x%04x => 0x%02x", addr, data));
+  if (count == 0) RES_RETURN(r_EARGS, -1);
+
+  uint8_t data[PAGE_SIZE];
+  if (count == 1) {
+    if (dev_mem_read(addr, data)) return -1;
+  } else {
+    if (dev_mem_bulk_read(addr, count, data)) return -1;
+  }
+
+  for (int i = 0; i < count; i++) {
+    gui_log(TextFormat("0x%04x => 0x%02x", addr + i, data[i]));
+  }
 
   RES_RETURN(r_ENONE, 0);
 }

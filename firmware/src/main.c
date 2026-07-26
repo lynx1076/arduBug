@@ -25,10 +25,7 @@ int main(void) {
 
   sei();
 
-  ser_printf("Init %s\n\n", VERSION_TXT);
-
   if (io_init()) {
-    ser_printf("IO init failed\n");
     panic();
   }
 

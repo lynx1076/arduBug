@@ -3,6 +3,7 @@
 #include "io.h"
 #include "serial_protocol.h"
 #include "meta.h"
+#include "common.h"
 #include <stdint.h>
 #include <string.h>
 
@@ -85,6 +86,25 @@ uint8_t cmd_exec(uint8_t len, const uint8_t* cmd, uint8_t* resp) {
 
       resp[0] = SP_SIG_OK;
       return 1;
+    }
+    case SP_CMD_MEM_BULK_READ: {
+      if (arg_cnt != 3) break;
+
+      uint8_t lb = args[0];
+      uint8_t hb = args[1];
+      uint16_t addr = hb << 8 | lb;
+      uint8_t cnt = args[2];
+      if (cnt == 0 || cnt > PAGE_SIZE) break;
+      uint8_t data[PAGE_SIZE];
+
+      if (bif_mem_bulk_read(addr, cnt, data)) break;
+
+      resp[0] = SP_SIG_OK;
+      for (uint8_t i = 0; i < cnt; i++) {
+        resp[i + 1] = data[i];
+      }
+
+      return 1 + cnt;
     }
     case SP_CMD_SET_RESET: {
       if (arg_cnt != 1) break;

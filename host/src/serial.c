@@ -19,7 +19,7 @@
 #include <string.h>
 
 #define DEVICE_READY_DELAY_MS         2500
-#define RECV_TIMEOUT_MS               100
+#define RECV_TIMEOUT_MS               1000000
 #define READ_TIMEOUT_100MS            1
 
 static int device_fd = -1;
@@ -206,10 +206,13 @@ int ser_read(size_t* length, uint8_t* data) {
   RES_RETURN(r_ENONE, 0);
 }
 
-int ser_enc_read(size_t* length, uint8_t* data) {
-  size_t i = 0;
+int ser_enc_read(uint8_t* length, uint8_t* data) {
+  if (*length > UCOBS_MAX_DATA_LEN) RES_RETURN(r_EARGS, -1);
+
+  long i = 0;
   uint32_t last_byte_time = millis();
   bool recv_sync = false;
+  uint8_t data_buf[UCOBS_MAX_PACKET_LEN];
 
   while (i < UCOBS_MAX_PACKET_LEN) {
     if (millis() - last_byte_time >= RECV_TIMEOUT_MS) {
@@ -217,7 +220,7 @@ int ser_enc_read(size_t* length, uint8_t* data) {
     }
 
     size_t bytes_to_read = 1;
-    if (ser_read(&bytes_to_read, data + i)) {
+    if (ser_read(&bytes_to_read, data_buf + i)) {
       return -1; 
     }
 
@@ -227,9 +230,10 @@ int ser_enc_read(size_t* length, uint8_t* data) {
 
     last_byte_time = millis();
 
-    if (data[i] == 0x00) {
+    if (data_buf[i] == 0x00) {
+      if (i - 2 > *length) RES_RETURN(r_EDEVICE, -1);
       if (recv_sync) {
-        int decoded = ucobs_decode(i - 1, data + 1, data);
+        int decoded = ucobs_decode(i - 1, data_buf + 1, data);
         
         if (decoded < 0) {
           RES_RETURN(r_EENCODING, -1);
@@ -267,7 +271,7 @@ int ser_enc_write(size_t length, const uint8_t* data) {
   RES_RETURN(r_ENONE, 0);
 }
 
-int ser_enc_write_va(size_t length, ...) {
+int ser_enc_write_va(unsigned int length, ...) {
   if (length > UCOBS_MAX_DATA_LEN) RES_RETURN(r_EPAYLOAD_SIZE, -1);
 
   va_list va_args;
@@ -292,8 +296,8 @@ int ser_enc_write_va(size_t length, ...) {
   RES_RETURN(r_ENONE, 0);
 }
 
-int ser_enc_read_va(size_t expected_length, ...) {
-  size_t read_length;
+int ser_enc_read_va(unsigned int expected_length, ...) {
+  uint8_t read_length = expected_length;
   uint8_t read_data[UCOBS_MAX_DATA_LEN];
 
   if (ser_enc_read(&read_length, read_data)) return -1;

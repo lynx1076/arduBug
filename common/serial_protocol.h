@@ -5,10 +5,6 @@
 
 #define SP_SIG_ERR              0xA3
 #define SP_SIG_OK               0xA4
-#define SP_SIG_END_CMD          0xA5
-
-#define SP_LOW                  0
-#define SP_HIGH                 1
 
 #define SP_STATE_ERROR          0
 #define SP_STATE_DEV_TBO        1

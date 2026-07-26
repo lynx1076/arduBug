@@ -21,9 +21,9 @@ bool ser_just_closed(void);
 int ser_write(size_t length, const uint8_t* data);
 int ser_read(size_t* length, uint8_t* data);
 
-int ser_enc_read(size_t* length, uint8_t* data);
+int ser_enc_read(uint8_t* length, uint8_t* data);
 
-int ser_enc_write_va(size_t length, ...);
-int ser_enc_read_va(size_t expected_length, ...);
+int ser_enc_write_va(unsigned int length, ...);
+int ser_enc_read_va(unsigned int expected_length, ...);
 
 #endif

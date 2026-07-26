@@ -2,12 +2,12 @@
 #include "io.h"
 #include "serial_protocol.h"
 #include "twi.h"
+#include "common.h"
 #include <util/delay.h>
 #include <stdlib.h>
 #include <stdint.h>
 
 
-#define EEPROM_PAGE_SIZE    64
 #define TIMEOUT_WRITE_US    10000
 
 static uint8_t await_write_success(uint8_t data) {
@@ -36,10 +36,6 @@ uint8_t bif_mem_read(uint16_t addr, uint8_t* data) {
   if (io_set_dev_en(true)) return 1;
   io_set_ext_clk(HIGH);
 
-  bool bus_owned;
-  if (io_get_dev_tbo(&bus_owned)) return 1;
-  if (!bus_owned) return 1;
-
   *data = io_read_databus();
   if (io_set_dev_en(true)) return 1;
 
@@ -61,7 +57,7 @@ uint8_t bif_mem_write(uint16_t addr, uint8_t data) {
   if (io_set_rw(true)) return 1;
 
   if (io_set_dev_en(true)) return 1;
-
+  
   if (io_set_rw(false)) return 1;
 
   if (await_write_success(data)) return 1;
@@ -72,6 +68,8 @@ uint8_t bif_mem_write(uint16_t addr, uint8_t data) {
 uint8_t bif_mem_bulk_read(uint16_t base_addr, uint8_t length, uint8_t* data) {
   if (data == NULL) return 1;
   if (length == 0) return 0;
+  if (length > PAGE_SIZE) return 1;
+  if (LAST_ADDR - base_addr + 1 < length) return 1;
 
   io_highz_databus();
   if (io_highz_addrbus()) return 1;
@@ -104,6 +102,8 @@ uint8_t bif_mem_bulk_read(uint16_t base_addr, uint8_t length, uint8_t* data) {
 uint8_t bif_mem_bulk_write(uint16_t base_addr, uint8_t length, uint8_t* data) {
   if (data == NULL) return 1;
   if (length == 0) return 0;
+  if (length > PAGE_SIZE) return 1;
+  if (LAST_ADDR - base_addr + 1 < length) return 1;
 
   io_highz_databus();
   if (io_highz_addrbus()) return 1;
@@ -132,11 +132,9 @@ uint8_t bif_mem_bulk_write(uint16_t base_addr, uint8_t length, uint8_t* data) {
 
     io_set_ext_clk(HIGH);
     io_set_ext_clk(LOW);
-
-    if (i & (i % 64 == 0)) {
-      if (await_write_success(data[i])) return 1;
-    }
   }
+
+  if (await_write_success(data[length - 1])) return 1;
 
   return 0;
 }

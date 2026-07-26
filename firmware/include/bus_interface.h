@@ -1,7 +1,6 @@
 #ifndef BUS_INTERFACE_H
 #define BUS_INTERFACE_H
 
-
 #include <stdbool.h>
 #include <stdint.h>
 

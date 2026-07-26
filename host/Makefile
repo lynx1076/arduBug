@@ -26,6 +26,7 @@ SRCS = \
 	src/gui.c \
 	src/commands.c \
 	libs/microui/src/microui.c \
+	libs/tinyfiledialogs/tinyfiledialogs.c \
 	src/rmu.c \
 
 COMMON_SRCS = \
@@ -35,6 +36,7 @@ INCLUDES = \
 	include \
 	../common \
 	libs/microui/src \
+	libs/tinyfiledialogs/ \
 
 
 CFLAGS = \
