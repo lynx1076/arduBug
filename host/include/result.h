@@ -24,6 +24,7 @@
   X(r_EINVALID_CMD) \
   X(r_EPARSE) \
   X(r_EMISSING_DATA) \
+  X(r_ECOMPATIBILITY) \
 
 
 typedef enum {

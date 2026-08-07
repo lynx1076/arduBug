@@ -156,7 +156,10 @@ int cmd_status(size_t arg_cnt, const char** tokens) {
   }
 
   if (ser_is_open()) {
-    gui_log(TextFormat("Connected to %s\n", ser_get_device()));
+    gui_log(TextFormat("Connected to %s", ser_get_device()));
+    if (dev_is_ready()) {
+      gui_log("Device ready");
+    }
   } else {
     gui_log(TextFormat("Not connected\n"));
   }
@@ -173,6 +176,26 @@ int cmd_ping(size_t arg_cnt, const char** tokens) {
   if (dev_ping()) return -1;
 
   gui_log("Success");
+
+  RES_RETURN(r_ENONE, 0);
+}
+
+int cmd_compat_code(size_t arg_cnt, const char** tokens) {
+  (void)arg_cnt;
+  (void)tokens;
+
+  uint8_t dev_compat_code;
+  if (dev_get_compat_code(&dev_compat_code)) return -1;
+
+
+  if (dev_compat_code != SP_COMPAT_CODE) {
+    gui_log("Compat code mismatch!");
+    gui_log(TextFormat("Host: 0x%02x != device: 0x%02x", SP_COMPAT_CODE, dev_compat_code));
+    ser_close();
+    RES_RETURN(r_ECOMPATIBILITY, -1);
+  } else {
+    gui_log(TextFormat("Host: 0x%02x == device: 0x%02x", SP_COMPAT_CODE, dev_compat_code));
+  }
 
   RES_RETURN(r_ENONE, 0);
 }
@@ -262,7 +285,7 @@ int cmd_read_bus_state(size_t arg_cnt, const char** tokens) {
 }
 
 int cmd_step_clock(size_t arg_cnt, const char** tokens) {
-  const long MAX_STEPS = 512;
+  const long MAX_STEPS = 200;
   long steps;
 
   if (arg_cnt == 0) steps = 1;
@@ -279,14 +302,7 @@ int cmd_step_clock(size_t arg_cnt, const char** tokens) {
     RES_RETURN(r_EARGS, -1);
   }
 
-  long executed_steps = dev_step_clock(steps);
-
-  if (_res == r_ENONE) {
-    gui_log(TextFormat("Stepped %li times", executed_steps));
-  } else {
-    gui_log("Command failed");
-    gui_log(TextFormat("Stepped %li times instead of %li", executed_steps, steps));
-  }
+  if (dev_step_ext_clk(steps)) return -1;
 
   if (dev_print_bus_state()) return -1;
 
@@ -305,16 +321,16 @@ int cmd_reset_cpu(size_t arg_cnt, const char** tokens) {
 }
 
 int cmd_step_instruction(size_t arg_cnt, const char** tokens) {
-  const long MAX_STEPS = 512;
-  long steps;
+  const long MAX_STEPS = 255;
+  long _steps;
 
-  if (arg_cnt == 0) steps = 1;
+  if (arg_cnt == 0) _steps = 1;
   else if (arg_cnt == 1) {
-    if (parse_long(tokens[1], &steps)) return -1;
-    if (steps > MAX_STEPS) {
+    if (parse_long(tokens[1], &_steps)) return -1;
+    if (_steps > MAX_STEPS) {
       gui_log(TextFormat("Too many steps, only up to %li steps at a time", MAX_STEPS));
       RES_RETURN(r_EARGS, -1);
-    } else if (steps <= 0) {
+    } else if (_steps <= 0) {
       gui_log("Must step clock atleast once");
       RES_RETURN(r_EARGS, -1);
     }
@@ -322,13 +338,14 @@ int cmd_step_instruction(size_t arg_cnt, const char** tokens) {
     RES_RETURN(r_EARGS, -1);
   }
 
-  long executed_steps = dev_step_instructions(steps);
+  int steps = _steps;
+  int executed_steps = dev_step_instructions(steps);
 
   if (_res == r_ENONE) {
-    gui_log(TextFormat("Stepped %li times", executed_steps));
+    gui_log(TextFormat("Stepped %i instructions", executed_steps));
   } else {
     gui_log("Command failed");
-    gui_log(TextFormat("Stepped %li times instead of %li", executed_steps, steps));
+    gui_log(TextFormat("Stepped %i instrcutions instead of %i", executed_steps, steps));
   }
 
   if (dev_print_bus_state()) return -1;
@@ -353,7 +370,7 @@ int cmd_mem_read(size_t arg_cnt, const char** tokens) {
     if (parse_long(tokens[2], &count)) return -1;
   }
 
-  if (count == 0) RES_RETURN(r_EARGS, -1);
+  if (count == 0 || count > PAGE_SIZE) RES_RETURN(r_EBOUNDS, -1);
 
   uint8_t data[PAGE_SIZE];
   if (count == 1) {
@@ -370,17 +387,27 @@ int cmd_mem_read(size_t arg_cnt, const char** tokens) {
 }
 
 int cmd_mem_write(size_t arg_cnt, const char** tokens) {
-  if (arg_cnt != 2) RES_RETURN(r_EARGS, -1);
+  if (arg_cnt < 2) RES_RETURN(r_EARGS, -1);
+
+  long count = arg_cnt - 1;
+  if (count == 0 || count > PAGE_SIZE) RES_RETURN(r_EBOUNDS, -1);
 
   uint16_t addr;
   if (parse_hex_word(tokens[1], &addr)) return -1;
 
-  uint8_t data;
-  if (parse_hex_byte(tokens[2], &data)) return -1;
+  uint8_t data[PAGE_SIZE];
 
-  if (dev_mem_write(addr, data)) return -1;
+  for (size_t i = 0; i < arg_cnt - 1; i++) {
+    if (parse_hex_byte(tokens[i + 2], data + i)) return -1;
+  }
 
-  gui_log(TextFormat("0x%04x => 0x%02x", addr, data));
+  if (count == 1) {
+    if (dev_mem_write(addr, *data)) return -1;
+  } else {
+    if (dev_mem_bulk_write(addr, count, data)) return -1;
+  }
+
+  gui_log("Write okay");
 
   RES_RETURN(r_ENONE, 0);
 }

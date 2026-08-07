@@ -106,12 +106,64 @@ uint8_t cmd_exec(uint8_t len, const uint8_t* cmd, uint8_t* resp) {
 
       return 1 + cnt;
     }
+    case SP_CMD_MEM_BULK_WRITE: {
+      if (arg_cnt < 4) break; // Addr LB & HB + Count + minimum 1 Byte
+
+      uint8_t lb = args[0];
+      uint8_t hb = args[1];
+      uint16_t addr = hb << 8 | lb;
+      uint8_t cnt = args[2];
+
+      if (cnt != arg_cnt - 3) break; // Addr LB & HB + Count
+
+      if (bif_mem_bulk_write(addr, cnt, args + 3)) break;
+
+      resp[0] = SP_SIG_OK;
+
+      return 1;
+    }
     case SP_CMD_SET_RESET: {
       if (arg_cnt != 1) break;
       if (io_set_reset(args[0])) break;
 
       resp[0] = SP_SIG_OK;
       return 1;
+    }
+    case SP_CMD_STEP_EXT_CLK: {
+      uint8_t cnt;
+
+      if (arg_cnt == 0) cnt = 1;
+      else if (arg_cnt == 1) cnt = args[1];
+      else break;
+
+      for (uint8_t i = 0; i < cnt; i++) {
+        io_set_ext_clk(LOW);
+        io_set_ext_clk(HIGH);
+      }
+
+      resp[0] = SP_SIG_OK;
+      resp[1] = cnt;
+
+      return 1;
+    }
+    case SP_CMD_STEP_INST_EXT_CLK: {
+      uint8_t cnt;
+
+      if (arg_cnt == 0) cnt = 1;
+      else if (arg_cnt == 1) cnt = args[1];
+      else break;
+
+      uint8_t executed_steps = 0;
+
+      for (uint8_t i = 0; i < cnt; i++) {
+        if (bif_step_instruction()) break;
+        executed_steps++;
+      }
+
+      resp[0] = executed_steps == cnt ? SP_SIG_OK : SP_SIG_ERR;
+      resp[1] = executed_steps;
+
+      return 2;
     }
     case SP_CMD_COMPAT_CODE: {
       resp[0] = SP_SIG_OK;

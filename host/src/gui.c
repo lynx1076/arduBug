@@ -86,13 +86,13 @@ static int handle_gui_content(void) {
   mu_label(&ctx, "--- Serial ---");
   if (ser_is_open()) {
     mu_label(&ctx, TextFormat("Connected to %s", ser_get_device()));
-    mu_label(&ctx, TextFormat("Device is%s ready", ser_is_ready() ? "" : " not"));
+    mu_label(&ctx, TextFormat("Device is%s ready", dev_is_ready() ? "" : " not"));
   } else {
     mu_label(&ctx, "Not connected");
   }
 
   mu_label(&ctx, "--- CPU Info ---");
-  if (ser_is_ready()) {
+  if (dev_is_ready()) {
     uint8_t state;
     uint8_t data;
     uint16_t addr;
@@ -111,7 +111,7 @@ static int handle_gui_content(void) {
         bool cpu_sync = state & (1 << SP_STATE_SYNC);
         bool writing = state & (1 << SP_STATE_WRITING);
 
-        mu_label(&ctx, TextFormat("Cpu is %s 0x%02x at 0x%04x", writing ? "writing" : "reading", data, addr));
+        mu_label(&ctx, TextFormat("CPU is %s 0x%02x at 0x%04x", writing ? "writing" : "reading", data, addr));
 
         mu_label(&ctx, TextFormat("Bus is%s owned", tbo ? "" : " not"));
         if (cpu_sync) mu_label(&ctx, TextFormat("CPU is fetching an opcode"));

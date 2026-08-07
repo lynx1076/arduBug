@@ -1,6 +1,4 @@
 #include "serial.h"
-#include "gui.h"
-#include "device.h"
 #include "ucobs.h"
 #include "result.h"
 #include "utils.h"
@@ -18,39 +16,15 @@
 #include <dirent.h>
 #include <string.h>
 
-#define DEVICE_READY_TIMEOUT_MS       2500
-#define RECV_TIMEOUT_MS               100
+#ifdef DEBUG
+#define RECV_TIMEOUT_MS               999999999
+#else
+#define RECV_TIMEOUT_MS               20000
+#endif
 #define READ_TIMEOUT_100MS            1
 
 static int device_fd = -1;
 static char device_path[SERIAL_PORT_PATH_MAX] = {0};
-static size_t device_open_timer_ms = 0;
-static bool device_ready = false;
-
-int ser_update(void) {
-  if (!ser_is_open()) RES_RETURN(r_ENONE, 0);
-
-  if (!device_ready) {
-    if (!dev_ping()) {
-      device_ready = true;
-      if (dev_init()) {
-        ser_close();
-        gui_log(TextFormat("Failed to init device: %s", res_get_string(_res)));
-        device_ready = false;
-        return -1;
-      }
-
-      gui_log("Device initialized");
-    } else if (millis() - device_open_timer_ms > DEVICE_READY_TIMEOUT_MS) {
-      ser_close();
-      gui_log(TextFormat("Failed to init device: %s", res_get_string(_res)));
-      device_ready = false;
-      RES_RETURN(r_ETIMEOUT, -1);
-    }
-  }
-
-  RES_RETURN(r_ENONE, 0);
-}
 
 int ser_scan_ports(Vec* return_vec) {
   if (vec_init(return_vec, SERIAL_PORT_PATH_MAX)) return -1;
@@ -134,9 +108,6 @@ int ser_open(char* path) {
   device_fd = fd;
   snprintf(device_path, SERIAL_PORT_PATH_MAX, "%s", path);
 
-  device_ready = false;
-  device_open_timer_ms = millis();
-
   RES_RETURN(r_ENONE, 0);
 }
 
@@ -156,10 +127,6 @@ bool ser_is_open(void) {
   }
 
   return *device_path != '\0';
-}
-
-bool ser_is_ready(void) {
-  return device_ready;
 }
 
 int ser_write(size_t length, const uint8_t* data) {

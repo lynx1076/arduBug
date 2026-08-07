@@ -1,7 +1,7 @@
 #ifndef SERIAL_PROTOCOL_H
 #define SERIAL_PROTOCOL_H
 
-#define SP_COMPAT_CODE          0x04
+#define SP_COMPAT_CODE          0x06
 
 #define SP_SIG_ERR              0xA3
 #define SP_SIG_OK               0xA4
@@ -21,22 +21,24 @@
 
 #define SP_CMD_SET_EXT_CLOCK_EN     0xC2
 #define SP_CMD_SET_EXT_CLOCK        0xC3
+#define SP_CMD_STEP_EXT_CLK         0xC4
+#define SP_CMD_STEP_INST_EXT_CLK    0xC5
 
-#define SP_CMD_READ_DATABUS         0xC4
-#define SP_CMD_READ_ADDRBUS         0xC5
+#define SP_CMD_READ_DATABUS         0xC6
+#define SP_CMD_READ_ADDRBUS         0xC7
 
-#define SP_CMD_MEM_READ             0xC6
-#define SP_CMD_MEM_WRITE            0xC7
+#define SP_CMD_MEM_READ             0xC8
+#define SP_CMD_MEM_WRITE            0xC9
 
-#define SP_CMD_MEM_BULK_READ        0xC8
-#define SP_CMD_MEM_BULK_WRITE       0xC9
+#define SP_CMD_MEM_BULK_READ        0xCA
+#define SP_CMD_MEM_BULK_WRITE       0xCB
 
-#define SP_CMD_SET_RESET            0xCA
+#define SP_CMD_SET_RESET            0xCC
 
-#define SP_CMD_COMPAT_CODE          0xCB
-#define SP_CMD_VERSION_TEXT         0xCC
-#define SP_CMD_PING                 0xCD
+#define SP_CMD_COMPAT_CODE          0xEA
+#define SP_CMD_VERSION_TEXT         0xEB
+#define SP_CMD_PING                 0xEC
 
-#define SP_CMD_SDP_DISABLE          0xCE
+#define SP_CMD_SDP_DISABLE          0xFE
 
 #endif

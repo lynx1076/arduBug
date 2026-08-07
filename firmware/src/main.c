@@ -1,6 +1,5 @@
 #include "cmd_handler.h"
 #include "io.h"
-#include "meta.h"
 #include "serial.h"
 #include "twi.h"
 #include "ucobs.h"

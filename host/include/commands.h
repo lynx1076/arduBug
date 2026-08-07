@@ -13,6 +13,7 @@ int cmd_execute(char* cmd);
   X(cmd_disconnect, "disconnect", "dis") \
   X(cmd_status, "status", "st") \
   X(cmd_ping, "ping", "p") \
+  X(cmd_compat_code, "compat", "cpt") \
   X(cmd_version, "version", "v") \
   X(cmd_show_debug_logs, "logs", "log") \
   X(cmd_clear_gui_logs, "clear", "cl") \

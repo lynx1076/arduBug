@@ -43,6 +43,8 @@ uint8_t io_set_cpu_en(bool enable);
 
 uint8_t io_set_ext_clk_en(bool enable);
 void io_set_ext_clk(bool high);
+void io_flip_ext_clk(void);
+bool io_get_ext_clk(void);
 
 uint8_t io_set_rw(bool writing);
 uint8_t io_get_rw(bool* writing);

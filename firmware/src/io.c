@@ -81,6 +81,16 @@ void io_set_ext_clk(bool high) {
   }
 }
 
+void io_flip_ext_clk(void) {
+  PIND |= 1 << PIN_EXT_CLK;
+}
+
+bool io_get_ext_clk(void) {
+  bool is_high = PORTD & (1 << PIN_EXT_CLK);
+
+  return is_high ? HIGH : LOW;
+}
+
 uint8_t io_set_rw(bool writing) {
   if (iox_set_pin(IOX1_ADDR, IOX_IODIRB, PIN_RWB, IOX_OUTPUT)) return 1;
   if (iox_set_pin(IOX1_ADDR, IOX_OLATB, PIN_RWB, !writing)) return 1;

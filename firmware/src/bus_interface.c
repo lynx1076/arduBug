@@ -23,7 +23,27 @@ static uint8_t await_write_success(uint8_t data) {
   return 0;
 }
 
+uint8_t bif_step_instruction(void) {
+  bool sync;
+  uint8_t cycles = 0;
+
+  do {
+    if (cycles >= MAX_CYCLES_BEFORE_OPCODE) return 1;
+
+    io_set_ext_clk(LOW);
+    io_set_ext_clk(HIGH);
+
+    if (io_get_sync(&sync)) return 1;
+
+    cycles++;
+  } while (!sync);
+
+  return 0;
+}
+
 uint8_t bif_mem_read(uint16_t addr, uint8_t* data) {
+  bool clk = io_get_ext_clk();
+
   if (io_set_dev_en(false)) return 1;
   if (io_set_ext_clk_en(true)) return 1;
   if (io_set_cpu_en(false)) return 1;
@@ -39,10 +59,14 @@ uint8_t bif_mem_read(uint16_t addr, uint8_t* data) {
   *data = io_read_databus();
   if (io_set_dev_en(true)) return 1;
 
+  io_set_ext_clk(clk);
+
   return 0;
 }
 
 uint8_t bif_mem_write(uint16_t addr, uint8_t data) {
+  bool clk = io_get_ext_clk();
+
   io_highz_databus();
   if (io_highz_addrbus()) return 1;
   if (io_set_dev_en(false)) return 1;
@@ -62,10 +86,14 @@ uint8_t bif_mem_write(uint16_t addr, uint8_t data) {
 
   if (await_write_success(data)) return 1;
 
+  io_set_ext_clk(clk);
+
   return 0;
 }
 
 uint8_t bif_mem_bulk_read(uint16_t base_addr, uint8_t length, uint8_t* data) {
+  bool clk = io_get_ext_clk();
+
   if (data == NULL) return 1;
   if (length == 0) return 0;
   if (length > PAGE_SIZE) return 1;
@@ -96,10 +124,14 @@ uint8_t bif_mem_bulk_read(uint16_t base_addr, uint8_t length, uint8_t* data) {
     data[i] = io_read_databus();
   }
 
+  io_set_ext_clk(clk);
+
   return 0;
 }
 
-uint8_t bif_mem_bulk_write(uint16_t base_addr, uint8_t length, uint8_t* data) {
+uint8_t bif_mem_bulk_write(uint16_t base_addr, uint8_t length, const uint8_t* data) {
+  bool clk = io_get_ext_clk();
+
   if (data == NULL) return 1;
   if (length == 0) return 0;
   if (length > PAGE_SIZE) return 1;
@@ -135,6 +167,8 @@ uint8_t bif_mem_bulk_write(uint16_t base_addr, uint8_t length, uint8_t* data) {
   }
 
   if (await_write_success(data[length - 1])) return 1;
+
+  io_set_ext_clk(clk);
 
   return 0;
 }
