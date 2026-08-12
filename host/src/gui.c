@@ -20,11 +20,19 @@
 #define RES_DIR               "res/"
 #define FONT                  "OpenSans.ttf"
 
+#define STATUSLINE_HEIGHT     25
+#define STATUSLINE_LEN        128
+
+#define WINDOW_MIN_WIDTH      600
+#define WINDOW_MIN_HEIGHT     600
+
 static mu_Context ctx;
 
 static bool cmd_log_ready = false;
 static Vec cmd_log;
 static char input_buff[CLI_LINE_LEN];
+
+static char statusline_buf[STATUSLINE_LEN + 1] = "";
 
 int WINDOW_WIDTH = 800;
 int WINDOW_HEIGHT = 600;
@@ -44,7 +52,7 @@ static int handle_events(void) {
 static int handle_gui_content(void) {
   static bool cmd_entered = false;
 
-  mu_Rect cli_rect = mu_rect(0, 0, WINDOW_WIDTH * 0.65, WINDOW_HEIGHT * 0.9);
+  mu_Rect cli_rect = mu_rect(0, 0, WINDOW_WIDTH * 0.65, WINDOW_HEIGHT * 0.9 - STATUSLINE_HEIGHT);
   mu_draw_rect(&ctx, cli_rect, mu_color(22, 22, 22, 255));
 
   mu_layout_row(&ctx, 2, (int[]){ cli_rect.w, -1 }, 0);
@@ -129,6 +137,9 @@ static int handle_gui_content(void) {
 
   mu_layout_end_column(&ctx);
 
+  mu_layout_set_next(&ctx, mu_rect(10, WINDOW_HEIGHT - STATUSLINE_HEIGHT * 1.2, WINDOW_WIDTH, STATUSLINE_HEIGHT), 0);
+  mu_label(&ctx, statusline_buf);
+
   RES_RETURN(r_ENONE, 0);
 }
 
@@ -137,6 +148,11 @@ void gui_log(const char* log) {
   else if (vec_push(&cmd_log, (void*)TextSubtext(log, 0, CLI_LINE_LEN))) {
     printf("Attempted gui log but logger failed.\ngui log: %s", log);
   }
+}
+
+void gui_set_statusline(const char* text) {
+  strncpy(statusline_buf, text, STATUSLINE_LEN);
+  statusline_buf[STATUSLINE_LEN] = '\0';
 }
 
 void gui_log_clear(void) {
@@ -192,7 +208,12 @@ int gui_update(void) {
     mu_Container* cnt = mu_get_current_container(&ctx);
     cnt->rect = mu_rect(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
 
-    if (handle_gui_content()) return -1;
+    if (WINDOW_WIDTH < WINDOW_MIN_WIDTH || WINDOW_HEIGHT < WINDOW_MIN_HEIGHT) {
+      mu_layout_set_next(&ctx, mu_rect(2, 2, WINDOW_WIDTH, WINDOW_HEIGHT), 0);
+      mu_label(&ctx, TextFormat("Window too small - increase to atleast %ix%i", WINDOW_MIN_WIDTH, WINDOW_MIN_HEIGHT));
+    } else {
+      if (handle_gui_content()) return -1;
+    }
 
     mu_end_window(&ctx);
   }

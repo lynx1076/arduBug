@@ -24,6 +24,7 @@ SRCS = \
 	src/device.c \
 	src/parse.c \
 	src/gui.c \
+	src/math.c \
 	src/commands.c \
 	libs/microui/src/microui.c \
 	libs/tinyfiledialogs/tinyfiledialogs.c \

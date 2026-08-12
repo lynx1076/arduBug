@@ -9,6 +9,7 @@
 
 
 #define TIMEOUT_WRITE_US    10000
+#define EEPROM_PAGE_SIZE    64
 
 static uint8_t await_write_success(uint8_t data) {
   uint16_t timeout = 0;
@@ -164,6 +165,10 @@ uint8_t bif_mem_bulk_write(uint16_t base_addr, uint8_t length, const uint8_t* da
 
     io_set_ext_clk(HIGH);
     io_set_ext_clk(LOW);
+
+    if (i && i % EEPROM_PAGE_SIZE == 0) {
+      if (await_write_success(data[length - 1])) return 1;
+    }
   }
 
   if (await_write_success(data[length - 1])) return 1;

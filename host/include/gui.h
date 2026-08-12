@@ -13,6 +13,7 @@ extern int FONT_SIZE;
 extern int FONT_SPACING;
 
 void gui_log(const char* log);
+void gui_set_statusline(const char* text);
 void gui_log_clear(void);
 int gui_init(void);
 void gui_close(void);

@@ -391,9 +391,14 @@ uint8_t* dev_mem_dump(void) {
   uint8_t* memory = malloc(MEMORY_SIZE);
   if (memory == NULL) RES_RETURN(r_EMEM, NULL);
 
+  size_t bytes_read = 0;
+
   for (int addr = 0; addr < MEMORY_SIZE; addr += PAGE_SIZE) {
     int read_size = MEMORY_SIZE - addr > PAGE_SIZE ? PAGE_SIZE : MEMORY_SIZE - addr;
-    if (dev_mem_bulk_read(addr, read_size, memory)) return NULL;
+    if (dev_mem_bulk_read(addr, read_size, memory + bytes_read)) return NULL;
+    bytes_read += read_size;
   }
+
+  return memory;
 }
 

@@ -33,5 +33,6 @@ int dev_mem_read(uint16_t addr, uint8_t* data);
 int dev_mem_write(uint16_t addr, uint8_t data);
 int dev_mem_bulk_read(uint16_t addr, uint8_t count, uint8_t* data);
 int dev_mem_bulk_write(uint16_t addr, uint8_t count, uint8_t* data);
+uint8_t* dev_mem_dump(void);
 
 #endif

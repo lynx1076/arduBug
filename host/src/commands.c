@@ -412,3 +412,21 @@ int cmd_mem_write(size_t arg_cnt, const char** tokens) {
   RES_RETURN(r_ENONE, 0);
 }
 
+int cmd_mem_dump(size_t arg_cnt, const char** tokens) {
+  (void)tokens;
+  (void)arg_cnt;
+
+  uint8_t* memory = dev_mem_dump();
+
+  if (memory == NULL) {
+    return -1;
+  }
+
+  printf("0xfffc: ");
+  print_hex(2, memory + 0xFFFC);
+  printf("0x8000: ");
+  print_hex(5, memory + 0x8000);
+
+  RES_RETURN(r_ENONE, 0);
+}
+

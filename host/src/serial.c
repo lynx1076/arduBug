@@ -169,16 +169,15 @@ int ser_read(size_t* length, uint8_t* data) {
     ser_close();
     RES_RETURN(r_ESYS, -1);
   } else if (read_res >= 1) {
+#ifdef DEBUG
+    for (size_t i = 0; i < *length; i++) {
+      printf("Read 0x%02x\n", data[i]);
+    }
+#endif
     *length = read_res;
 
     RES_RETURN(r_DATA_READY, 0);
   }
-
-#ifdef DEBUG
-  for (size_t i = 0; i < *length; i++) {
-    printf("Read 0x%02x\n", data[i]);
-  }
-#endif
 
   RES_RETURN(r_ENONE, 0);
 }
@@ -208,8 +207,8 @@ int ser_enc_read(uint8_t* length, uint8_t* data) {
     last_byte_time = millis();
 
     if (data_buf[i] == 0x00) {
-      if (i - 2 > *length) RES_RETURN(r_EDEVICE, -1);
       if (recv_sync) {
+        if (i - 2 > *length) RES_RETURN(r_EDEVICE, -1);
         int decoded = ucobs_decode(i - 1, data_buf + 1, data);
         
         if (decoded < 0) {

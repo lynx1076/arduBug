@@ -24,6 +24,7 @@ int cmd_execute(char* cmd);
   X(cmd_reset_cpu, "reset", "rs") \
   X(cmd_mem_read, "read", "r") \
   X(cmd_mem_write, "write", "w") \
+  X(cmd_mem_dump, "dump", "dmp") \
 
 #define X(CMD, NAME, ALT) \
   int CMD(size_t arg_cnt, const char** tokens);

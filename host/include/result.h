@@ -2,7 +2,8 @@
 #define RESULT_H
 
 #include <threads.h>
-#define RES_RETURN(RESULT, VALUE)         do { _res = RESULT; return VALUE; } while (0)
+#define RES_RETURN(RESULT, VALUE) \
+  do { _res = RESULT; return VALUE; } while (0)
 
 #define RESULTS \
   X(r_ENONE) \
