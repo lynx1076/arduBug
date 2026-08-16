@@ -10,8 +10,6 @@
 uint8_t cmd_exec(uint8_t len, const uint8_t* cmd, uint8_t* resp) {
   const uint8_t* args = cmd + 1;
   uint8_t arg_cnt = len - 1;
-  (void)args;
-  (void)arg_cnt;
 
   switch (*cmd) {
     case SP_CMD_GET_CPU_STATE: {
@@ -116,7 +114,7 @@ uint8_t cmd_exec(uint8_t len, const uint8_t* cmd, uint8_t* resp) {
 
       if (cnt != arg_cnt - 3) break; // Addr LB & HB + Count
 
-      if (bif_mem_bulk_write(addr, cnt, args + 3)) break;
+      if (bif_mem_bulk_write(addr, cnt, args + 3)) resp[0] = 69;
 
       resp[0] = SP_SIG_OK;
 

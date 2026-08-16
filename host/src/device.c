@@ -6,10 +6,12 @@
 #include "gui.h"
 #include "ucobs.h"
 #include "utils.h"
+#include <ncurses.h>
 #include <raylib.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -35,6 +37,7 @@ int dev_init(void) {
 int dev_update(void) {
   if (!ser_is_open()) {
     device_ready = false;
+    device_open_timer_ms = millis();
   } else if (!device_ready) {
     uint8_t compat_code;
     if (!dev_get_compat_code(&compat_code)) {
@@ -385,20 +388,5 @@ int dev_mem_bulk_write(uint16_t addr, uint8_t count, uint8_t* data) {
   if (dev_revert_state()) return -1;
 
   RES_RETURN(r_ENONE, 0);
-}
-
-uint8_t* dev_mem_dump(void) {
-  uint8_t* memory = malloc(MEMORY_SIZE);
-  if (memory == NULL) RES_RETURN(r_EMEM, NULL);
-
-  size_t bytes_read = 0;
-
-  for (int addr = 0; addr < MEMORY_SIZE; addr += PAGE_SIZE) {
-    int read_size = MEMORY_SIZE - addr > PAGE_SIZE ? PAGE_SIZE : MEMORY_SIZE - addr;
-    if (dev_mem_bulk_read(addr, read_size, memory + bytes_read)) return NULL;
-    bytes_read += read_size;
-  }
-
-  return memory;
 }
 

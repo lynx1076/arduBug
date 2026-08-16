@@ -24,6 +24,12 @@ typedef struct {
 int vec_init(Vec* vec, unsigned int elSize);
 
 /**
+ * Check if vector object is initialized
+ * Only works if vector is defined as VEC_EMPTY
+ */
+bool vec_is_init(Vec* vec);
+
+/**
  * Free the vector object
  */
 void vec_free(Vec* vec);

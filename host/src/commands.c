@@ -2,6 +2,7 @@
 #include "common.h"
 #include "device.h"
 #include "device.h"
+#include "devmem.h"
 #include "result.h"
 #include "serial_protocol.h"
 #include "ucobs.h"
@@ -21,7 +22,7 @@
 #include <string.h>
 
 
-#define TOKEN_COUNT       64
+#define TOKEN_COUNT       256
 
 static Vec device_list = VEC_EMPTY;
 
@@ -45,7 +46,7 @@ int cmd_execute(char* cmd) {
 
 	if (token_cnt == 0) RES_RETURN(r_ENONE, 0);
 #define X(CMD_FUNC, CMD, ALT) \
-	else if (strcmp(CMD, input_tokens[0]) == 0 || strcmp(ALT, input_tokens[0]) == 0) { \
+	else if (strcmp(CMD, input_tokens[0]) == 0 || strcmp(ALT ? ALT : "", input_tokens[0]) == 0) { \
     debug_log(log_INFO, "Running command: %s", #CMD_FUNC); \
 	  return CMD_FUNC(token_cnt - 1, (const char**)input_tokens); \
   }
@@ -64,7 +65,7 @@ int cmd_help(size_t arg_cnt, const char **tokens) {
   }
 
 #define X(FUNCTION, CMD, ALT) \
-  gui_log(TextFormat("%s (%s) => %s\n", CMD, ALT, #FUNCTION));
+  gui_log(TextFormat("%s (%s) => %s\n", CMD, ALT ? ALT : "", #FUNCTION));
   COMMANDS
 #undef X
 
@@ -413,19 +414,27 @@ int cmd_mem_write(size_t arg_cnt, const char** tokens) {
 }
 
 int cmd_mem_dump(size_t arg_cnt, const char** tokens) {
-  (void)tokens;
   (void)arg_cnt;
+  (void)tokens;
 
-  uint8_t* memory = dev_mem_dump();
+  const char* filepath = "dump.txt";
 
-  if (memory == NULL) {
-    return -1;
-  }
+  if (arg_cnt > 0) filepath = tokens[1];
 
-  printf("0xfffc: ");
-  print_hex(2, memory + 0xFFFC);
-  printf("0x8000: ");
-  print_hex(5, memory + 0x8000);
+  if (devm_dump_to_file(filepath)) return -1;
+
+  RES_RETURN(r_ENONE, 0);
+}
+
+int cmd_mem_flash(size_t arg_cnt, const char** tokens) {
+  (void)arg_cnt;
+  (void)tokens;
+
+  const char* filepath = "flash.txt";
+
+  if (arg_cnt > 0) filepath = tokens[1];
+
+  if (devm_flash_from_file(filepath)) return -1;
 
   RES_RETURN(r_ENONE, 0);
 }

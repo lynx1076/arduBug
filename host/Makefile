@@ -26,6 +26,7 @@ SRCS = \
 	src/gui.c \
 	src/math.c \
 	src/commands.c \
+	src/devmem.c \
 	libs/microui/src/microui.c \
 	libs/tinyfiledialogs/tinyfiledialogs.c \
 	src/rmu.c \

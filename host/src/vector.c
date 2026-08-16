@@ -20,6 +20,10 @@ int vec_init(Vec* vec, unsigned int elSize) {
   RES_RETURN(r_ENONE, 0);
 }
 
+bool vec_is_init(Vec* vec) {
+  return vec->memory != NULL;
+}
+
 void vec_free(Vec* vec) {
   if (vec == NULL) return;
   

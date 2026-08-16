@@ -34,6 +34,9 @@ static char input_buff[CLI_LINE_LEN];
 
 static char statusline_buf[STATUSLINE_LEN + 1] = "";
 
+static bool log_is_at_bottom = false;
+static bool log_go_to_bottom = false;
+
 int WINDOW_WIDTH = 800;
 int WINDOW_HEIGHT = 600;
 
@@ -50,8 +53,6 @@ static int handle_events(void) {
 }
 
 static int handle_gui_content(void) {
-  static bool cmd_entered = false;
-
   mu_Rect cli_rect = mu_rect(0, 0, WINDOW_WIDTH * 0.65, WINDOW_HEIGHT * 0.9 - STATUSLINE_HEIGHT);
   mu_draw_rect(&ctx, cli_rect, mu_color(22, 22, 22, 255));
 
@@ -61,7 +62,7 @@ static int handle_gui_content(void) {
   mu_layout_set_next(&ctx, mu_rect(cli_rect.x, cli_rect.y + cli_rect.h + 4, cli_rect.w, FONT_SIZE * 2), 0);
   if (mu_textbox(&ctx, input_buff, CLI_LINE_LEN) == MU_RES_SUBMIT) {
     if (vec_push(&cmd_log, (void*)TextFormat("> %s", input_buff))) return -1;
-    cmd_entered = true;
+    log_go_to_bottom = true;
     mu_set_focus(&ctx, ctx.last_id);
 
     if (cmd_execute(input_buff)) {
@@ -74,11 +75,12 @@ static int handle_gui_content(void) {
   mu_layout_set_next(&ctx, mu_rect(0, 0, cli_rect.w, cli_rect.h), 0);
   mu_begin_panel(&ctx, "log");
 
-  if (cmd_entered) {
-    mu_Container *cmd_log_panel = mu_get_current_container(&ctx);
+  mu_Container *cmd_log_panel = mu_get_current_container(&ctx);
+  if (log_go_to_bottom) {
     cmd_log_panel->scroll.y = cmd_log_panel->content_size.y;
-    cmd_entered = false;
+    log_go_to_bottom = false;
   }
+  log_is_at_bottom = cmd_log_panel->scroll.y == cmd_log_panel->content_size.y;
   
   for (size_t i = 0; i < cmd_log.count; i++) {
     mu_layout_row(&ctx, 1, (int[]){ -1 }, 0);
@@ -100,6 +102,7 @@ static int handle_gui_content(void) {
   }
 
   mu_label(&ctx, "--- CPU Info ---");
+#ifndef DEBUG
   if (dev_is_ready()) {
     uint8_t state;
     uint8_t data;
@@ -134,6 +137,9 @@ static int handle_gui_content(void) {
   } else {
     mu_label(&ctx, "Device is not ready");
   }
+#else
+  mu_label(&ctx, "Deactivated for debug");
+#endif
 
   mu_layout_end_column(&ctx);
 
@@ -148,6 +154,7 @@ void gui_log(const char* log) {
   else if (vec_push(&cmd_log, (void*)TextSubtext(log, 0, CLI_LINE_LEN))) {
     printf("Attempted gui log but logger failed.\ngui log: %s", log);
   }
+  if (log_is_at_bottom) log_go_to_bottom = true;
 }
 
 void gui_set_statusline(const char* text) {

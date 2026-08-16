@@ -171,7 +171,7 @@ uint8_t bif_mem_bulk_write(uint16_t base_addr, uint8_t length, const uint8_t* da
     }
   }
 
-  if (await_write_success(data[length - 1])) return 1;
+  if (length % EEPROM_PAGE_SIZE == 0 || await_write_success(data[length - 1])) return 1;
 
   io_set_ext_clk(clk);
 

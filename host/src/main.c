@@ -1,4 +1,5 @@
 #include "device.h"
+#include "devmem.h"
 #include "gui.h"
 #include "result.h"
 #include "utils.h"
@@ -17,6 +18,13 @@ int main(int argc, char* argv[]) {
 
   while (true) {
     if (dev_update()) {
+      if (_res == r_EMEM || _res == r_ESYS) {
+        debug_log(log_CRIT, "Cannot recover from %s - Exiting", res_get_string(_res));
+        goto EXIT;
+      }
+    }
+
+    if (devm_update()) {
       if (_res == r_EMEM || _res == r_ESYS) {
         debug_log(log_CRIT, "Cannot recover from %s - Exiting", res_get_string(_res));
         goto EXIT;

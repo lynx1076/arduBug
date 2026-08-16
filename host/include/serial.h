@@ -5,6 +5,7 @@
 #include "vector.h"
 #include <stddef.h>
 #include <stdint.h>
+#include <termios.h>
 
 #define SER_BAUDRATE                  B115200
 #define SERIAL_PORT_PATH_MAX          300
