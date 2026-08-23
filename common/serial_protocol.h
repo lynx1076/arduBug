@@ -30,8 +30,8 @@
 #define SP_CMD_MEM_READ             0xC8
 #define SP_CMD_MEM_WRITE            0xC9
 
-#define SP_CMD_MEM_BULK_READ        0xCA
-#define SP_CMD_MEM_BULK_WRITE       0xCB
+#define SP_CMD_MEM_PAGE_READ        0xCA
+#define SP_CMD_MEM_PAGE_WRITE       0xCB
 
 #define SP_CMD_SET_RESET            0xCC
 

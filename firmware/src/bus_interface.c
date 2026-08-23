@@ -13,6 +13,9 @@
 
 static uint8_t await_write_success(uint8_t data) {
   uint16_t timeout = 0;
+  
+  io_set_rw(false);
+
   while (timeout < TIMEOUT_WRITE_US) {
     uint8_t read_back = io_read_databus();
     if (read_back == data) break;
@@ -53,7 +56,7 @@ uint8_t bif_mem_read(uint16_t addr, uint8_t* data) {
   if (io_write_addrbus(addr)) return 1;
   io_highz_databus();
 
-  if (io_set_rw(false)) return 1;
+  io_set_rw(false);
   if (io_set_dev_en(true)) return 1;
   io_set_ext_clk(HIGH);
 
@@ -79,11 +82,11 @@ uint8_t bif_mem_write(uint16_t addr, uint8_t data) {
 
   io_write_databus(data);
 
-  if (io_set_rw(true)) return 1;
+  io_set_rw(true);
 
   if (io_set_dev_en(true)) return 1;
   
-  if (io_set_rw(false)) return 1;
+  io_set_rw(false);
 
   if (await_write_success(data)) return 1;
 
@@ -92,7 +95,7 @@ uint8_t bif_mem_write(uint16_t addr, uint8_t data) {
   return 0;
 }
 
-uint8_t bif_mem_bulk_read(uint16_t base_addr, uint8_t length, uint8_t* data) {
+uint8_t bif_mem_page_read(uint16_t base_addr, uint8_t length, uint8_t* data) {
   bool clk = io_get_ext_clk();
 
   if (data == NULL) return 1;
@@ -106,7 +109,7 @@ uint8_t bif_mem_bulk_read(uint16_t base_addr, uint8_t length, uint8_t* data) {
   if (io_set_ext_clk_en(true)) return 1;
   if (io_set_cpu_en(false)) return 1;
   io_set_ext_clk(HIGH);
-  if (io_set_rw(false)) return 1;
+  io_set_rw(false);
   if (io_set_dev_en(true)) return 1;
 
   // Set the address to output
@@ -130,13 +133,13 @@ uint8_t bif_mem_bulk_read(uint16_t base_addr, uint8_t length, uint8_t* data) {
   return 0;
 }
 
-uint8_t bif_mem_bulk_write(uint16_t base_addr, uint8_t length, const uint8_t* data) {
+uint8_t bif_mem_page_write(uint16_t base_addr, uint8_t length, const uint8_t* data) {
   bool clk = io_get_ext_clk();
 
   if (data == NULL) return 1;
-  if (length == 0) return 0;
+  if (length == 0) return 1;
   if (length > PAGE_SIZE) return 1;
-  if (LAST_ADDR - base_addr + 1 < length) return 1;
+  if (length > (uint32_t)LAST_ADDR - base_addr + 1) return 1;
 
   io_highz_databus();
   if (io_highz_addrbus()) return 1;
@@ -144,35 +147,35 @@ uint8_t bif_mem_bulk_write(uint16_t base_addr, uint8_t length, const uint8_t* da
   if (io_set_ext_clk_en(true)) return 1;
   if (io_set_cpu_en(false)) return 1;
   io_set_ext_clk(LOW);
-  if (io_set_rw(true)) return 1;
+  io_set_rw(false);
   if (io_set_dev_en(true)) return 1;
 
-  // Set the address to output
   if (twi_write_reg(IOX0_ADDR, IOX_IODIRA, IOX_PORT_OUTPUT)) return 1;
   if (twi_write_reg(IOX0_ADDR, IOX_IODIRB, IOX_PORT_OUTPUT)) return 1;
 
   for (uint8_t i = 0; i < length; i++) {
-    // Load byte onto native pins
-    io_write_databus(data[i]);
-
-    // Stream 16-bit address in single TWI burst
     uint16_t addr = base_addr + i;
+
     if (twi_start_addr(IOX0_ADDR, TWI_WRITE)) return 1;
     if (twi_write(IOX_OLATA)) return 1;
-    if (twi_write((uint8_t)(addr & 0xFF))) return 1; // OLATA
-    if (twi_write((uint8_t)(addr >> 8))) return 1; // Auto-increment to OLATB
+    if (twi_write((uint8_t)(addr & 0xFF))) return 1;
+    if (twi_write((uint8_t)(addr >> 8))) return 1;
     twi_stop();
+
+    io_write_databus(data[i]);
+    io_set_rw(true);
 
     io_set_ext_clk(HIGH);
     io_set_ext_clk(LOW);
+    io_set_rw(false);
 
-    if (i && i % EEPROM_PAGE_SIZE == 0) {
-      if (await_write_success(data[length - 1])) return 1;
+    if ((addr & 0xFFC0) != ((addr + 1) & 0xFFC0) || i == length - 1) {
+      if (await_write_success(data[i])) return 1;
+      io_set_rw(true);
     }
   }
 
-  if (length % EEPROM_PAGE_SIZE == 0 || await_write_success(data[length - 1])) return 1;
-
+  io_set_rw(false);
   io_set_ext_clk(clk);
 
   return 0;
@@ -193,8 +196,7 @@ uint8_t bif_get_cpu_state(void) {
   bool ml;
   if (io_get_ml(&ml)) return 1 << SP_STATE_ERROR;
 
-  bool writing;
-  if (io_get_rw(&writing)) return 1 << SP_STATE_ERROR;
+  bool writing = io_read_rw();
 
   bool nmi;
   if (io_get_nmi(&nmi)) return 1 << SP_STATE_ERROR;
@@ -220,7 +222,7 @@ uint8_t bif_rom_permanent_sdp_disable(void) {
   if (io_set_ext_clk_en(true)) return 1;
   if (io_set_cpu_en(false)) return 1;
   io_set_ext_clk(LOW);
-  if (io_set_rw(true)) return 1; // Force active write mode
+  io_set_rw(true); // Force active write mode
   if (io_set_dev_en(true)) return 1; // Force ROM Chip Select Active
 
   // Set address bus expander ports to output
@@ -251,7 +253,7 @@ uint8_t bif_rom_permanent_sdp_disable(void) {
 
   // Clean up the bus
   if (io_set_dev_en(false)) return 1;
-  if (io_set_rw(false)) return 1;
+  io_set_rw(false);
 
   return 0;
 }

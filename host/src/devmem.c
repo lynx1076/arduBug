@@ -38,7 +38,7 @@ static int devm_update_dump(void) {
   int read_size = MEMORY_SIZE - dump_addr > PAGE_SIZE ? PAGE_SIZE : MEMORY_SIZE - dump_addr;
   if (read_size) {
     gui_set_statusline(TextFormat("Dumping memory: %i%%", dump_addr * 100 / MEMORY_SIZE));
-    if (dev_mem_bulk_read(dump_addr, read_size, dump_buf + dump_addr)) return -1;
+    if (dev_mem_page_read(dump_addr, read_size, dump_buf + dump_addr)) return -1;
     dump_addr += read_size;
   } else {
     FILE *file;
@@ -101,14 +101,15 @@ static int devm_update_flash(void) {
     byte_str[0] = c;
     byte_str[2] = '\0';
     if (fread(byte_str + 1, sizeof(char), 1, flash_file) != 1) {
-      gui_log("File error");
-      RES_RETURN(r_EFILE, -1);
+      gui_log("File ended");
+      flash_memory = false;
+      RES_RETURN(r_ENONE, -1);
     }
 
     if (parse_hex_byte(byte_str, &flash_block[i])) return -1;
   }
 
-  if (dev_mem_bulk_write(flash_addr, flash_size, flash_block)) return -1;
+  if (dev_mem_page_write(flash_addr, flash_size, flash_block)) return -1;
 
   gui_set_statusline(TextFormat("Flashing: %i%%", flash_addr * 100 / MEMORY_SIZE));
 
@@ -116,6 +117,21 @@ static int devm_update_flash(void) {
   if (flash_addr >= MEMORY_SIZE) {
     gui_set_statusline("Finished flashing");
     flash_memory = false;
+  }
+
+  RES_RETURN(r_ENONE, 0);
+}
+
+int devm_bulk_write(uint16_t addr, uint16_t len, const uint8_t* data) {
+  if (addr + len > LAST_ADDR) RES_RETURN(r_EBOUNDS, -1);
+
+  uint16_t remaining_bytes = len;
+
+  while (remaining_bytes) {
+    int write_size = remaining_bytes > PAGE_SIZE ? PAGE_SIZE : remaining_bytes;
+    if (dev_mem_page_write(addr, write_size, data)) return -1;
+    data += write_size;
+    remaining_bytes -= write_size;
   }
 
   RES_RETURN(r_ENONE, 0);

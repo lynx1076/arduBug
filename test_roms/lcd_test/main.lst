@@ -1,0 +1,19 @@
+ca65 V2.18 - Git ece63f0
+Main file   : main.s
+Current file: main.s
+
+000000r 1               .setcpu "6502"
+000000r 1               
+000000r 1               .segment "CODE"
+000000r 1               
+000000r 1               reset:
+000000r 1  78             sei
+000001r 1  D8             cld
+000002r 1               
+000002r 1  A9 42          lda #$42
+000004r 1  8D 00 02       sta $0200
+000007r 1               
+000007r 1               loop:
+000007r 1  4C rr rr       jmp loop
+00000Ar 1               
+00000Ar 1               

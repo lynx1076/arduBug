@@ -31,7 +31,7 @@ int dev_revert_state(void);
 int dev_step_instructions(uint8_t instructions);
 int dev_mem_read(uint16_t addr, uint8_t* data);
 int dev_mem_write(uint16_t addr, uint8_t data);
-int dev_mem_bulk_read(uint16_t addr, uint8_t count, uint8_t* data);
-int dev_mem_bulk_write(uint16_t addr, uint8_t count, uint8_t* data);
+int dev_mem_page_read(uint16_t addr, uint8_t count, uint8_t* data);
+int dev_mem_page_write(uint16_t addr, uint8_t count, const uint8_t* data);
 
 #endif

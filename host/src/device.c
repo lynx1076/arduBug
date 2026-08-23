@@ -343,7 +343,7 @@ int dev_mem_write(uint16_t addr, uint8_t data) {
   RES_RETURN(r_ENONE, 0);
 }
 
-int dev_mem_bulk_read(uint16_t addr, uint8_t count, uint8_t* data) {
+int dev_mem_page_read(uint16_t addr, uint8_t count, uint8_t* data) {
   if (!dev_is_ready()) RES_RETURN(r_ENOT_CONNECTED, -1);
   if (data == NULL) RES_RETURN(r_ENULL_PTR, -1);
   if (count == 0 || count > PAGE_SIZE) RES_RETURN(r_EBOUNDS, -1);
@@ -351,7 +351,7 @@ int dev_mem_bulk_read(uint16_t addr, uint8_t count, uint8_t* data) {
   uint8_t hb = addr >> 8;
   uint8_t lb = addr & 0xFF;
 
-  if (ser_enc_write_va(4, SP_CMD_MEM_BULK_READ, lb, hb, count)) RES_RETURN(r_EDEVICE, -1);
+  if (ser_enc_write_va(4, SP_CMD_MEM_PAGE_READ, lb, hb, count)) RES_RETURN(r_EDEVICE, -1);
 
   uint8_t reply_len = count + 3;
   uint8_t reply[UCOBS_MAX_DATA_LEN];
@@ -366,7 +366,7 @@ int dev_mem_bulk_read(uint16_t addr, uint8_t count, uint8_t* data) {
   RES_RETURN(r_ENONE, 0);
 }
 
-int dev_mem_bulk_write(uint16_t addr, uint8_t count, uint8_t* data) {
+int dev_mem_page_write(uint16_t addr, uint8_t count, const uint8_t* data) {
   if (!dev_is_ready()) RES_RETURN(r_ENOT_CONNECTED, -1);
   if (data == NULL) RES_RETURN(r_ENULL_PTR, -1);
   if (count == 0 || count > PAGE_SIZE) RES_RETURN(r_EBOUNDS, -1);
@@ -374,7 +374,7 @@ int dev_mem_bulk_write(uint16_t addr, uint8_t count, uint8_t* data) {
   uint8_t hb = addr >> 8;
   uint8_t lb = addr & 0xFF;
 
-  uint8_t command[4 + PAGE_SIZE] = {SP_CMD_MEM_BULK_WRITE, lb, hb, count};
+  uint8_t command[4 + PAGE_SIZE] = {SP_CMD_MEM_PAGE_WRITE, lb, hb, count};
 
   memcpy(command + 4, data, count);
 

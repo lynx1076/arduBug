@@ -15,7 +15,7 @@
 #include <string.h>
 #include <unistd.h>
 
-#define CLI_LINE_LEN          128
+#define CLI_LINE_LEN          512
 
 #define RES_DIR               "res/"
 #define FONT                  "OpenSans.ttf"

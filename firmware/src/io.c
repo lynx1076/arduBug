@@ -50,17 +50,18 @@ uint8_t io_set_cpu_en(bool enable) {
   if (enable) {
     io_highz_databus();
     if (io_highz_addrbus()) return 1;
-    if (io_highz_rw()) return 1;
+    io_highz_rw();
     if (io_set_reset(false)) return 1;
   } else {
     if (io_set_ext_clk_en(true)) return 1;
+    io_set_rw(false);
   }
 
   if (iox_set_pin(IOX1_ADDR, IOX_IODIRA, PIN_EXT_CPU_EN, IOX_OUTPUT)) return 1;
   if (iox_set_pin(IOX1_ADDR, IOX_OLATA, PIN_EXT_CPU_EN, enable)) return 1;
 
   if (!enable) {
-    if (io_set_rw(false)) return 1;
+    io_set_rw(false);
   }
 
   return 0;
@@ -91,26 +92,25 @@ bool io_get_ext_clk(void) {
   return is_high ? HIGH : LOW;
 }
 
-uint8_t io_set_rw(bool writing) {
-  if (iox_set_pin(IOX1_ADDR, IOX_IODIRB, PIN_RWB, IOX_OUTPUT)) return 1;
-  if (iox_set_pin(IOX1_ADDR, IOX_OLATB, PIN_RWB, !writing)) return 1;
-
-  return 0;
+void io_set_rw(bool writing) {
+  DDRC |= 1 << PIN_RWB;
+  if (writing) {
+    PORTC &= ~(1 << PIN_RWB);
+  } else {
+    PORTC |= 1 << PIN_RWB;
+  }
 }
 
-uint8_t io_get_rw(bool* writing) {
-  if (iox_set_pin(IOX1_ADDR, IOX_IODIRB, PIN_RWB, IOX_INPUT)) return 1;
-  if (iox_get_pin(IOX1_ADDR, IOX_GPIOB, PIN_RWB, writing)) return 1;
+bool io_read_rw(void) {
+  io_highz_rw();
+  bool is_writing = !(PINC & (1 << PIN_RWB));
 
-  *writing = !(*writing);
-
-  return 0;
+  return is_writing ? true : false;
 }
 
-uint8_t io_highz_rw(void) {
-  if (iox_set_pin(IOX1_ADDR, IOX_IODIRB, PIN_RWB, IOX_INPUT)) return 1;
-
-  return 0;
+void io_highz_rw(void) {
+  DDRC &= ~(1 << PIN_RWB);
+  PORTC &= ~(1 << PIN_RWB);
 }
 
 uint8_t io_set_dev_en(bool enable) {

@@ -28,11 +28,11 @@
 #define PIN_MLB               6
 
 #define PIN_DEV_ENB           0
-#define PIN_RWB               1
 #define PIN_NMIB              2
 #define PIN_IRQB              3
 
 #define PIN_EXT_CLK           PD2
+#define PIN_RWB               PC2
 
 #define LOW               0
 #define HIGH              1
@@ -46,9 +46,9 @@ void io_set_ext_clk(bool high);
 void io_flip_ext_clk(void);
 bool io_get_ext_clk(void);
 
-uint8_t io_set_rw(bool writing);
-uint8_t io_get_rw(bool* writing);
-uint8_t io_highz_rw(void);
+void io_set_rw(bool writing);
+bool io_read_rw(void);
+void io_highz_rw(void);
 
 uint8_t io_set_dev_en(bool enable);
 

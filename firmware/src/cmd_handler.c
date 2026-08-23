@@ -85,7 +85,7 @@ uint8_t cmd_exec(uint8_t len, const uint8_t* cmd, uint8_t* resp) {
       resp[0] = SP_SIG_OK;
       return 1;
     }
-    case SP_CMD_MEM_BULK_READ: {
+    case SP_CMD_MEM_PAGE_READ: {
       if (arg_cnt != 3) break;
 
       uint8_t lb = args[0];
@@ -95,7 +95,7 @@ uint8_t cmd_exec(uint8_t len, const uint8_t* cmd, uint8_t* resp) {
       if (cnt == 0 || cnt > PAGE_SIZE) break;
       uint8_t data[PAGE_SIZE];
 
-      if (bif_mem_bulk_read(addr, cnt, data)) break;
+      if (bif_mem_page_read(addr, cnt, data)) break;
 
       resp[0] = SP_SIG_OK;
       for (uint8_t i = 0; i < cnt; i++) {
@@ -104,7 +104,7 @@ uint8_t cmd_exec(uint8_t len, const uint8_t* cmd, uint8_t* resp) {
 
       return 1 + cnt;
     }
-    case SP_CMD_MEM_BULK_WRITE: {
+    case SP_CMD_MEM_PAGE_WRITE: {
       if (arg_cnt < 4) break; // Addr LB & HB + Count + minimum 1 Byte
 
       uint8_t lb = args[0];
@@ -114,7 +114,7 @@ uint8_t cmd_exec(uint8_t len, const uint8_t* cmd, uint8_t* resp) {
 
       if (cnt != arg_cnt - 3) break; // Addr LB & HB + Count
 
-      if (bif_mem_bulk_write(addr, cnt, args + 3)) resp[0] = 69;
+      if (bif_mem_page_write(addr, cnt, args + 3)) break;
 
       resp[0] = SP_SIG_OK;
 

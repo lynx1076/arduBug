@@ -26,6 +26,7 @@ int cmd_execute(char* cmd);
   X(cmd_mem_write, "write", "w") \
   X(cmd_mem_dump, "dump", "dmp") \
   X(cmd_mem_flash, "flash", NULL) \
+  X(cmd_test, "test", NULL) \
 
 #define X(CMD, NAME, ALT) \
   int CMD(size_t arg_cnt, const char** tokens);
